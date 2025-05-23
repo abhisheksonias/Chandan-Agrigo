@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Building, Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { authService } from '../lib/supabaseService';
 
-const LoginPage = ({ onLoginSuccess }) => {
+const RegistrationPage = () => {
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: ''
   });
@@ -18,29 +19,17 @@ const LoginPage = ({ onLoginSuccess }) => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-
-  // Show success message if coming from registration
-  useEffect(() => {
-    if (location.state?.message) {
-      toast({
-        title: 'Success',
-        description: location.state.message,
-      });
-      
-      // Pre-fill email if provided
-      if (location.state.email) {
-        setFormData(prev => ({
-          ...prev,
-          email: location.state.email
-        }));
-      }
-    }
-  }, [location.state, toast]);
 
   const validateForm = () => {
     const newErrors = {};
+
+    // Name validation
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters';
+    }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,6 +42,8 @@ const LoginPage = ({ onLoginSuccess }) => {
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
 
     setErrors(newErrors);
@@ -83,33 +74,50 @@ const LoginPage = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
-    setErrors({});
 
     try {
-      const result = await authService.login(formData.email, formData.password);
+      // Check if user already exists
+      const userExists = await authService.checkUserExists(formData.email);
+      if (userExists.exists) {
+        setErrors({ email: 'An account with this email already exists' });
+        toast({
+          title: 'Registration Failed',
+          description: 'An account with this email already exists',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Register the user
+      const result = await authService.register(formData);
 
       if (result.success) {
         toast({
-          title: 'Login Successful',
-          description: `Welcome back, ${result.userData?.name || 'User'}!`,
+          title: 'Registration Successful!',
+          description: 'Your account has been created. Please check your email to verify your account.',
         });
         
-        // Call the onLoginSuccess callback with user data
-        onLoginSuccess(result.userData);
-        navigate('/');
+        // Redirect to login page
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! Please log in with your credentials.',
+            email: formData.email 
+          }
+        });
       } else {
         setErrors({ general: result.error });
         toast({
-          title: 'Login Failed',
+          title: 'Registration Failed',
           description: result.error,
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Registration error:', error);
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
       toast({
-        title: 'Login Failed',
+        title: 'Registration Failed',
         description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
@@ -131,10 +139,37 @@ const LoginPage = ({ onLoginSuccess }) => {
               <Building className="h-10 w-10 text-primary" />
             </div>
             <CardTitle className="text-3xl font-bold">AgriPro Sales</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardDescription>Create your account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Name Field */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    name="name"
+                    type="text"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Enter your full name"
+                    required
+                    className={`bg-background/80 pl-10 ${errors.name ? 'border-red-500' : ''}`}
+                  />
+                </div>
+                {errors.name && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-red-500 dark:text-red-400"
+                  >
+                    {errors.name}
+                  </motion.p>
+                )}
+              </div>
+
               {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -173,7 +208,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={handleInputChange}
-                    placeholder="Enter your password"
+                    placeholder="Create a password"
                     required
                     className={`bg-background/80 pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
                   />
@@ -214,19 +249,19 @@ const LoginPage = ({ onLoginSuccess }) => {
                 className="w-full text-lg py-3"
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? 'Creating Account...' : 'Create Account'}
               </Button>
             </form>
 
-            {/* Registration Link */}
+            {/* Login Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
+                Already have an account?{' '}
                 <Link 
-                  to="/register" 
+                  to="/login" 
                   className="text-primary hover:underline font-medium"
                 >
-                  Create one
+                  Sign in
                 </Link>
               </p>
             </div>
@@ -240,4 +275,4 @@ const LoginPage = ({ onLoginSuccess }) => {
   );
 };
 
-export default LoginPage;
+export default RegistrationPage;
