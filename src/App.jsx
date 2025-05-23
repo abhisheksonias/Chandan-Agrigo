@@ -9,6 +9,7 @@ import CustomersPage from '@/pages/CustomersPage';
 import ProductsPage from '@/pages/ProductsPage';
 import TransportsPage from '@/pages/TransportsPage';
 import AnalyticsBoardPage from '@/pages/AnalyticsBoardPage';
+import RegistrationPage from '@/pages/RegistrationPage';
 import { AppProvider } from '@/context/AppContext';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
       ) : (
         <Routes>
           <Route path="/login" element={<LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />} />
+          <Route path="/register" element={<RegistrationPage />} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       )}
