@@ -18,7 +18,7 @@ const initialCustomers = [
 const initialTransports = [
   { id: 'trans_1', name: 'AgriHaul Logistics', address: '123 Farm Road, Springfield' },
   { id: 'trans_2', name: 'CropMovers Inc.', address: '456 Harvest Lane, Rivertown' },
-];
+]; 
 
 const initialOrders = [
   { 
