@@ -82,7 +82,7 @@ const AnalyticsBoardPage = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm"><strong>Delivery Location:</strong> {order.deliveryLocation}</p>
-          <p className="text-sm"><strong>Added By:</strong> {order.addedBy}</p>
+          <p className="text-sm"><strong>Added By:</strong> {order.added_by}</p>
           <p className="text-sm"><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
           <div className="mt-2">
             <h4 className="text-sm font-semibold">Items:</h4>

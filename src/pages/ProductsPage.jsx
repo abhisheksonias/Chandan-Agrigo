@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Package, Edit, Trash2, Eye, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,38 +8,90 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ProductForm from '@/components/forms/ProductForm';
-import StockUpdateForm from '@/components/forms/StockUpdateForm';
-import { useToast } from '@/components/ui/use-toast';
+import StockAdjustmentForm from '@/components/forms/StockAdjustmentForm';
 
 const ProductsPage = () => {
-  const { products, addProduct, updateProductStock } = useAppContext();
-  const { toast } = useToast();
+  const { products, addProduct, updateProduct, deleteProduct, updateProductStock, isLoadingData } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isStockUpdateDialogOpen, setIsStockUpdateDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState(null);
+  const [productToUpdateStock, setProductToUpdateStock] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
   const [expandedProductId, setExpandedProductId] = useState(null);
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.unit.toLowerCase().includes(searchTerm.toLowerCase())
+    (product.unit && product.unit.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddProduct = (productData) => {
-    addProduct(productData);
-    setIsAddDialogOpen(false);
+  const handleFormSubmit = async (productData) => {
+    if (productToEdit) {
+      await updateProduct(productToEdit.id, productData);
+    } else {
+      await addProduct(productData);
+    }
+    setIsFormOpen(false);
+    setProductToEdit(null);
+  };
+
+  const openEditForm = (product) => {
+    setProductToEdit(product);
+    setIsFormOpen(true);
+  };
+
+  const openDeleteDialog = (product) => {
+    setProductToDelete(product);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (productToDelete) {
+      await deleteProduct(productToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
+    }
   };
 
   const handleOpenStockUpdate = (product) => {
-    setSelectedProduct(product);
+    setProductToUpdateStock(product);
     setIsStockUpdateDialogOpen(true);
   };
 
-  const handleUpdateStock = (productId, newStock, type) => {
-    updateProductStock(productId, newStock, type);
-    setIsStockUpdateDialogOpen(false);
-    setSelectedProduct(null);
+  // Enhanced stock adjustment handler
+  const handleStockAdjustment = async (quantityChange, reason) => {
+    if (productToUpdateStock) {
+      try {
+        // Calculate new stock level
+        const newStock = productToUpdateStock.stock + quantityChange;
+        
+        // Determine the update type based on quantity change
+        const updateType = quantityChange > 0 ? 'add' : 'remove';
+        
+        // Update the stock using your existing context method
+        // Assuming updateProductStock expects (productId, newStock, updateType, quantityChanged, reason)
+        await updateProductStock(
+          productToUpdateStock.id, 
+          newStock, 
+          updateType, 
+          Math.abs(quantityChange),
+          reason
+        );
+        
+        // Close dialog and reset state
+        setIsStockUpdateDialogOpen(false);
+        setProductToUpdateStock(null);
+        
+        // Optional: Show success message
+        console.log(`Stock updated successfully: ${quantityChange > 0 ? 'Added' : 'Removed'} ${Math.abs(quantityChange)} units`);
+        
+      } catch (error) {
+        console.error('Error updating stock:', error);
+        // Handle error (you might want to show a toast notification)
+      }
+    }
   };
   
   const toggleProductDetails = (productId) => {
@@ -56,6 +108,10 @@ const ProductsPage = () => {
     visible: { opacity: 1, y: 0 }
   };
 
+  if (isLoadingData) {
+    return <div className="text-center py-10">Loading products...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -63,20 +119,26 @@ const ProductsPage = () => {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">Manage your product inventory and stock.</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
-            </DialogHeader>
-            <ProductForm onSubmit={handleAddProduct} onCancel={() => setIsAddDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => { setProductToEdit(null); setIsFormOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> Add Product
+        </Button>
       </div>
+
+      <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+        setIsFormOpen(isOpen);
+        if (!isOpen) setProductToEdit(null);
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{productToEdit ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+          </DialogHeader>
+          <ProductForm 
+            product={productToEdit} 
+            onSubmit={handleFormSubmit} 
+            onCancel={() => { setIsFormOpen(false); setProductToEdit(null); }} 
+          />
+        </DialogContent>
+      </Dialog>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -109,27 +171,39 @@ const ProductsPage = () => {
                         <Package className="h-6 w-6 text-primary" />
                       </div>
                     </div>
-                    {product.image && (
-                      <div className="mt-4 h-40 w-full rounded-md overflow-hidden">
-                        <img-replace src={product.image} alt={product.name} className="h-full w-full object-cover" />
+                    {product.image ? (
+                      <div className="mt-4 h-40 w-full rounded-md overflow-hidden bg-muted">
+                        <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
                       </div>
+                    ) : (
+                       <div className="mt-4 h-40 w-full rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                        <Package className="h-16 w-16 text-muted-foreground" />
+                       </div>
                     )}
                   </CardHeader>
                   <CardContent className="flex-grow">
                     <p className="text-2xl font-bold">Stock: {product.stock}</p>
                   </CardContent>
                   <CardFooter className="flex-col items-start space-y-2 border-t pt-4">
-                    <div className="flex justify-between w-full">
+                    <div className="flex justify-between w-full items-center">
                        <Button variant="outline" size="sm" onClick={() => handleOpenStockUpdate(product)}>
-                        <Edit className="mr-2 h-4 w-4" /> Update Stock
+                        <Edit className="mr-2 h-4 w-4" /> Adjust Stock
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => toggleProductDetails(product.id)}>
+                      <div className="flex space-x-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditForm(product)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(product)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => toggleProductDetails(product.id)}>
                         {expandedProductId === product.id ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
                         Stock History
-                      </Button>
-                    </div>
+                    </Button>
                     <AnimatePresence>
-                      {expandedProductId === product.id && (
+                      {expandedProductId === product.id && product.stock_history && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -137,15 +211,16 @@ const ProductsPage = () => {
                           transition={{ duration: 0.3, ease: "easeInOut" }}
                           className="w-full pt-2"
                         >
-                          <div className="p-2 border rounded-md max-h-40 overflow-y-auto">
+                          <div className="p-2 border rounded-md max-h-40 overflow-y-auto bg-muted/50">
                             <h4 className="text-sm font-semibold mb-1">Stock History:</h4>
-                            {product.stockHistory && product.stockHistory.length > 0 ? (
+                            {product.stock_history.length > 0 ? (
                               <ul className="space-y-1 text-xs">
-                                {product.stockHistory.slice().reverse().map((entry, index) => (
+                                {product.stock_history.slice().reverse().map((entry, index) => (
                                   <li key={index} className="flex justify-between">
                                     <span>{new Date(entry.date).toLocaleDateString()}</span>
                                     <span>Qty: {entry.quantity}</span>
                                     <span className="capitalize">{entry.type}</span>
+                                    {entry.reason && <span className="text-muted-foreground">({entry.reason})</span>}
                                   </li>
                                 ))}
                               </ul>
@@ -172,20 +247,42 @@ const ProductsPage = () => {
         </div>
       )}
 
+      {/* Enhanced Stock Adjustment Dialog */}
       <Dialog open={isStockUpdateDialogOpen} onOpenChange={setIsStockUpdateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Update Stock for {selectedProduct?.name}</DialogTitle>
+            <DialogTitle>Adjust Stock</DialogTitle>
           </DialogHeader>
-          {selectedProduct && (
-            <StockUpdateForm 
-              product={selectedProduct} 
-              onSubmit={handleUpdateStock} 
-              onCancel={() => setIsStockUpdateDialogOpen(false)} 
+          {productToUpdateStock && (
+            <StockAdjustmentForm 
+              product={{
+                ...productToUpdateStock,
+                quantity: productToUpdateStock.stock // Map stock to quantity for form compatibility
+              }}
+              onSubmit={handleStockAdjustment}
+              onCancel={() => {
+                setIsStockUpdateDialogOpen(false);
+                setProductToUpdateStock(null);
+              }}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product "{productToDelete?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

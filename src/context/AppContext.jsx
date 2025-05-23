@@ -1,191 +1,104 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabaseClient';
+import useAuth from '@/hooks/useAuth';
+import useProducts from '@/hooks/useProducts';
+import useCustomers from '@/hooks/useCustomers';
+import useTransports from '@/hooks/useTransports';
+import useOrders from '@/hooks/useOrders';
 
 const AppContext = createContext(undefined);
 
-const initialProducts = [
-  { id: 'prod_1', name: 'Organic Fertilizer A', sku: 'SKU-FER-A-001', unit: 'Bag (50kg)', stock: 150, image: 'https://images.unsplash.com/photo-1597049090753-524431009bBC?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=60', stockHistory: [{ date: new Date().toISOString(), quantity: 150, type: 'initial' }] },
-  { id: 'prod_2', name: 'Pesticide B', sku: 'SKU-PES-B-002', unit: 'Bottle (1L)', stock: 300, image: 'https://images.unsplash.com/photo-1620003042996-56c75a099e88?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=60', stockHistory: [{ date: new Date().toISOString(), quantity: 300, type: 'initial' }] },
-  { id: 'prod_3', name: 'High-Yield Seeds C', sku: 'SKU-SEE-C-003', unit: 'Packet (1kg)', stock: 500, image: 'https://images.unsplash.com/photo-1586701541420-c00500c782ac?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=60', stockHistory: [{ date: new Date().toISOString(), quantity: 500, type: 'initial' }] },
-];
-
-const initialCustomers = [
-  { id: 'cust_1', name: 'Green Valley Farms', city: 'Springfield', phone: '555-0101' },
-  { id: 'cust_2', name: 'Sunrise Agriculture', city: 'Rivertown', phone: '555-0202' },
-  { id: 'cust_3', name: 'Golden Harvest Co.', city: 'Meadowbrook', phone: '555-0303' },
-];
-
-const initialOrders = [
-  { 
-    id: 'ord_1', 
-    customerId: 'cust_1', 
-    customerName: 'Green Valley Farms',
-    city: 'Springfield',
-    phoneNumber: '555-0101',
-    deliveryLocation: 'Farm Plot A, Springfield', 
-    addedBy: 'Admin', 
-    status: 'Unconfirmed', 
-    items: [{ productId: 'prod_1', productName: 'Organic Fertilizer A', quantity: 10, unit: 'Bag (50kg)' }],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-    dispatchedItems: []
-  },
-  { 
-    id: 'ord_2', 
-    customerId: 'cust_2', 
-    customerName: 'Sunrise Agriculture',
-    city: 'Rivertown',
-    phoneNumber: '555-0202',
-    deliveryLocation: 'Warehouse 3, Rivertown', 
-    addedBy: 'Admin', 
-    status: 'Confirmed', 
-    items: [{ productId: 'prod_2', productName: 'Pesticide B', quantity: 5, unit: 'Bottle (1L)' }, { productId: 'prod_3', productName: 'High-Yield Seeds C', quantity: 20, unit: 'Packet (1kg)' }],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-    dispatchedItems: []
-  },
-];
-
-
 export const AppProvider = ({ children }) => {
   const { toast } = useToast();
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load products and customers from localStorage
-        const storedProducts = localStorage.getItem('agripro-products');
-        const storedCustomers = localStorage.getItem('agripro-customers');
-        const storedOrders = localStorage.getItem('agripro-orders');
-        
-        setProducts(storedProducts ? JSON.parse(storedProducts) : initialProducts);
-        setCustomers(storedCustomers ? JSON.parse(storedCustomers) : initialCustomers);
-        setOrders(storedOrders ? JSON.parse(storedOrders) : initialOrders);
-      } catch (error) {
-        console.error('Error loading data:', error);
-        toast({ title: 'Error', description: 'Failed to load app data', variant: 'destructive' });
-        setProducts(initialProducts);
-        setCustomers(initialCustomers);
-        setOrders(initialOrders);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [toast]);
+  const {
+    session,
+    isLoadingSession,
+    signIn,
+    signOut,
+  } = useAuth(supabase, toast);
 
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('agripro-products', JSON.stringify(products));
-      localStorage.setItem('agripro-customers', JSON.stringify(customers));
-      localStorage.setItem('agripro-orders', JSON.stringify(orders));
+  const {
+    products,
+    setProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    updateProductStock,
+    generateSku,
+  } = useProducts(supabase, toast, session);
+
+  const {
+    customers,
+    setCustomers,
+    addCustomer,
+    updateCustomer,
+    deleteCustomer,
+  } = useCustomers(supabase, toast, session);
+
+  const {
+    transports,
+    setTransports,
+    addTransport,
+    updateTransport,
+    deleteTransport,
+  } = useTransports(supabase, toast, session);
+
+  const {
+    orders,
+    setOrders,
+    addOrder,
+    updateOrderStatus,
+    updateOrderDetails,
+  } = useOrders(supabase, toast, session, products);
+
+
+  const fetchData = useCallback(async (tableName, setData, errorMessage) => {
+    if (!session) return;
+    try {
+      const { data, error } = await supabase.from(tableName).select('*');
+      if (error) throw error;
+      setData(data || []);
+    } catch (error) {
+      console.error(`Error fetching ${tableName}:`, error);
+      toast({ title: 'Error', description: errorMessage || `Failed to load ${tableName} data.`, variant: 'destructive' });
+      setData([]);
     }
-  }, [products, customers, orders, isLoading]);
+  }, [toast, session]);
 
-  const generateSku = (productName) => {
-    const prefix = productName.substring(0, 3).toUpperCase();
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    return `SKU-${prefix}-${randomNum}`;
-  };
-
-  const addProduct = (productData) => {
-    const newProduct = { 
-      ...productData, 
-      id: `prod_${crypto.randomUUID()}`, 
-      sku: generateSku(productData.name),
-      stock: parseInt(productData.stock, 10) || 0,
-      stockHistory: [{ date: new Date().toISOString(), quantity: parseInt(productData.stock, 10) || 0, type: 'initial' }]
-    };
-    setProducts(prev => [...prev, newProduct]);
-    toast({ title: 'Product Added', description: `${newProduct.name} has been added.` });
-    return newProduct;
-  };
-
-  const updateProductStock = (productId, newStock, type = 'manual update') => {
-    setProducts(prevProducts => 
-      prevProducts.map(p => 
-        p.id === productId 
-        ? { 
-            ...p, 
-            stock: newStock, 
-            stockHistory: [...(p.stockHistory || []), { date: new Date().toISOString(), quantity: newStock, type }] 
-          } 
-        : p
-      )
-    );
-    const product = products.find(p => p.id === productId);
-    toast({ title: 'Stock Updated', description: `Stock for ${product?.name} updated to ${newStock}.` });
-  };
-  
-  const addCustomer = (customerData) => {
-    const newCustomer = { ...customerData, id: `cust_${crypto.randomUUID()}` };
-    setCustomers(prev => [...prev, newCustomer]);
-    toast({ title: 'Customer Added', description: `${newCustomer.name} has been added.` });
-    return newCustomer;
-  };
-
-
-  const addOrder = (orderData) => {
-    const newOrder = { 
-      ...orderData, 
-      id: `ord_${crypto.randomUUID()}`, 
-      status: 'Unconfirmed', 
-      createdAt: new Date().toISOString(),
-      dispatchedItems: [] 
-    };
-    setOrders(prev => [...prev, newOrder]);
-    toast({ title: 'Order Added', description: `New order for ${orderData.customerName} created.` });
-    return newOrder;
-  };
-
-  const updateOrderStatus = (orderId, newStatus, details) => {
-    setOrders(prevOrders => 
-      prevOrders.map(order => {
-        if (order.id === orderId) {
-          let updatedOrder = { ...order, status: newStatus };
-          if (newStatus === 'Confirmed') {
-            toast({ title: 'Order Confirmed', description: `Order ${orderId} confirmed.` });
-          } else if (newStatus === 'Partial Dispatch' && details) {
-            const updatedItems = order.items.map(item => {
-              const dispatchInfo = details.dispatchedItems.find(d => d.productId === item.productId);
-              if (dispatchInfo) {
-                return { ...item, dispatchedQuantity: (item.dispatchedQuantity || 0) + dispatchInfo.quantity };
-              }
-              return item;
-            });
-            updatedOrder = { ...updatedOrder, items: updatedItems, dispatchedItems: [...order.dispatchedItems, ...details.dispatchedItems] };
-            toast({ title: 'Order Partially Dispatched', description: `Order ${orderId} partially dispatched.` });
-          } else if (newStatus === 'Full Dispatch') {
-             const fullyDispatchedItems = order.items.map(item => ({ ...item, dispatchedQuantity: item.quantity }));
-             updatedOrder = { ...updatedOrder, items: fullyDispatchedItems };
-            toast({ title: 'Order Fully Dispatched', description: `Order ${orderId} fully dispatched.` });
-          }
-          return updatedOrder;
-        }
-        return order;
-      })
-    );
-  };
-  
-  const updateOrderDetails = (orderId, updatedDetails) => {
-    setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId ? { ...order, ...updatedDetails, updatedAt: new Date().toISOString() } : order
-      )
-    );
-    toast({ title: 'Order Updated', description: `Order ${orderId} details have been updated.` });
-  };
-
+  useEffect(() => {
+    if (session) {
+      const loadAllData = async () => {
+        setIsLoadingData(true);
+        await Promise.all([
+          fetchData('products', setProducts, 'Failed to load products.'),
+          fetchData('customers', setCustomers, 'Failed to load customers.'),
+          fetchData('transports', setTransports, 'Failed to load transports.'),
+          fetchData('orders', setOrders, 'Failed to load orders.')
+        ]);
+        setIsLoadingData(false);
+      };
+      loadAllData();
+    } else {
+      setProducts([]);
+      setCustomers([]);
+      setTransports([]);
+      setOrders([]);
+      setIsLoadingData(false); 
+    }
+  }, [session, fetchData, setProducts, setCustomers, setTransports, setOrders]);
 
 
   const value = {
-    products, customers, orders, isLoading,
-    addProduct, updateProductStock,
-    addCustomer,
-    addOrder, updateOrderStatus, updateOrderDetails,
-    generateSku
+    session, isLoadingSession, signIn, signOut,
+    products, addProduct, updateProduct, deleteProduct, updateProductStock, generateSku,
+    customers, addCustomer, updateCustomer, deleteCustomer,
+    transports, addTransport, updateTransport, deleteTransport,
+    orders, addOrder, updateOrderStatus, updateOrderDetails,
+    isLoadingData,
+    toast
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

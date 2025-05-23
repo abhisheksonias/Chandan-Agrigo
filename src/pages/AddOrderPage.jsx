@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Search, UserPlus } from 'lucide-react';
+import { Plus, Trash2, UserPlus } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,14 +16,20 @@ const AddOrderPage = () => {
   const { toast } = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [customerDetails, setCustomerDetails] = useState({ name: '', city: '', phoneNumber: '', deliveryLocation: '' });
+  const [customerDetails, setCustomerDetails] = useState({ 
+    name: '', 
+    city: '', 
+    phoneNumber: '', 
+    deliveryLocation: '' 
+  });
   const [orderItems, setOrderItems] = useState([{ productId: '', quantity: 1 }]);
-  const [addedBy, setAddedBy] = useState('Admin'); 
+  const [addedBy, setAddedBy] = useState(''); 
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
 
   const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.city.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -49,12 +55,21 @@ const AddOrderPage = () => {
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...orderItems];
-    newItems[index][field] = value;
-    if (field === 'productId') {
+    
+    if (field === 'quantity') {
+      newItems[index][field] = parseInt(value, 10) || 1;
+    } else if (field === 'productId') {
       const product = products.find(p => p.id === value);
-      newItems[index].unit = product ? product.unit : '';
-      newItems[index].productName = product ? product.name : '';
+      newItems[index] = {
+        ...newItems[index],
+        productId: value,
+        unit: product ? product.unit : '',
+        productName: product ? product.name : ''
+      };
+    } else {
+      newItems[index][field] = value;
     }
+    
     setOrderItems(newItems);
   };
 
@@ -63,48 +78,114 @@ const AddOrderPage = () => {
   };
 
   const removeItem = (index) => {
-    const newItems = orderItems.filter((_, i) => i !== index);
-    setOrderItems(newItems);
+    if (orderItems.length > 1) {
+      const newItems = orderItems.filter((_, i) => i !== index);
+      setOrderItems(newItems);
+    }
   };
 
   const handleAddNewCustomer = (newCustomerData) => {
     const newCustomer = addCustomer(newCustomerData);
     setSelectedCustomerId(newCustomer.id);
     setIsNewCustomerDialogOpen(false);
-    toast({ title: 'Customer Added', description: `${newCustomer.name} added and selected for the order.` });
+    toast({ 
+      title: 'Customer Added', 
+      description: `${newCustomer.name} added and selected for the order.` 
+    });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!selectedCustomerId && !customerDetails.name) {
-      toast({ title: 'Error', description: 'Please select or add a customer.', variant: 'destructive' });
-      return;
-    }
-    if (orderItems.some(item => !item.productId || item.quantity <= 0)) {
-      toast({ title: 'Error', description: 'Please ensure all order items are valid.', variant: 'destructive' });
-      return;
+  const validateForm = () => {
+    if (!selectedCustomerId && !customerDetails.name.trim()) {
+      toast({ 
+        title: 'Error', 
+        description: 'Please select or add a customer.', 
+        variant: 'destructive' 
+      });
+      return false;
     }
 
+    if (!customerDetails.city.trim()) {
+      toast({ 
+        title: 'Error', 
+        description: 'City is required.', 
+        variant: 'destructive' 
+      });
+      return false;
+    }
+
+    if (!customerDetails.phoneNumber.trim()) {
+      toast({ 
+        title: 'Error', 
+        description: 'Phone number is required.', 
+        variant: 'destructive' 
+      });
+      return false;
+    }
+
+    if (!customerDetails.deliveryLocation.trim()) {
+      toast({ 
+        title: 'Error', 
+        description: 'Delivery location is required.', 
+        variant: 'destructive' 
+      });
+      return false;
+    }
+
+    if (orderItems.some(item => !item.productId || item.quantity <= 0)) {
+      toast({ 
+        title: 'Error', 
+        description: 'Please ensure all order items have valid products and quantities.', 
+        variant: 'destructive' 
+      });
+      return false;
+    }
+
+    // Check stock availability
+    for (const item of orderItems) {
+      const product = products.find(p => p.id === item.productId);
+      if (product && product.stock < item.quantity) {
+        toast({ 
+          title: 'Error', 
+          description: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`, 
+          variant: 'destructive' 
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    
+    if (!validateForm()) return;
+
     const orderData = {
-      customerId: selectedCustomerId,
+      customerId: selectedCustomerId || null,
       customerName: customerDetails.name,
       city: customerDetails.city,
       phoneNumber: customerDetails.phoneNumber,
       deliveryLocation: customerDetails.deliveryLocation,
-      addedBy,
+      added_by: addedBy,
       items: orderItems.map(item => ({
         productId: item.productId,
         productName: products.find(p => p.id === item.productId)?.name,
-        quantity: parseInt(item.quantity, 10),
+        quantity: item.quantity,
         unit: products.find(p => p.id === item.productId)?.unit,
+        dispatchedQuantity: 0
       })),
     };
-    addOrder(orderData);
-    // Reset form
-    setSelectedCustomerId('');
-    setCustomerDetails({ name: '', city: '', phoneNumber: '', deliveryLocation: '' });
-    setOrderItems([{ productId: '', quantity: 1 }]);
-    setSearchTerm('');
+
+    const result = await addOrder(orderData);
+    
+    if (result) {
+      // Reset form
+      setSelectedCustomerId('');
+      setCustomerDetails({ name: '', city: '', phoneNumber: '', deliveryLocation: '' });
+      setOrderItems([{ productId: '', quantity: 1 }]);
+      setSearchTerm('');
+      setAddedBy('');
+    }
   };
 
   return (
@@ -120,7 +201,7 @@ const AddOrderPage = () => {
           <CardDescription>Fill in the details to create a new order.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-8">
             <section className="space-y-4 p-4 border rounded-lg">
               <h2 className="text-lg font-semibold">Customer Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -144,7 +225,9 @@ const AddOrderPage = () => {
                           {customer.name} ({customer.city})
                         </SelectItem>
                       ))}
-                      {filteredCustomers.length === 0 && <p className="p-2 text-sm text-muted-foreground">No customers found.</p>}
+                      {filteredCustomers.length === 0 && (
+                        <p className="p-2 text-sm text-muted-foreground">No customers found.</p>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -159,7 +242,10 @@ const AddOrderPage = () => {
                       <DialogHeader>
                         <DialogTitle>Add New Customer</DialogTitle>
                       </DialogHeader>
-                      <CustomerForm onSubmit={handleAddNewCustomer} onCancel={() => setIsNewCustomerDialogOpen(false)} />
+                      <CustomerForm 
+                        onSubmit={handleAddNewCustomer} 
+                        onCancel={() => setIsNewCustomerDialogOpen(false)} 
+                      />
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -167,20 +253,52 @@ const AddOrderPage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="customerName">Customer Name</Label>
-                  <Input id="customerName" name="name" value={customerDetails.name} onChange={handleCustomerDetailChange} required disabled={!!selectedCustomerId} />
+                  <Label htmlFor="customerName">Customer Name *</Label>
+                  <Input 
+                    id="customerName" 
+                    name="name" 
+                    value={customerDetails.name} 
+                    onChange={handleCustomerDetailChange} 
+                    required 
+                    disabled={!!selectedCustomerId} 
+                    placeholder="Enter customer name"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={customerDetails.city} onChange={handleCustomerDetailChange} required disabled={!!selectedCustomerId} />
+                  <Label htmlFor="city">City *</Label>
+                  <Input 
+                    id="city" 
+                    name="city" 
+                    value={customerDetails.city} 
+                    onChange={handleCustomerDetailChange} 
+                    required 
+                    disabled={!!selectedCustomerId}
+                    placeholder="Enter city"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input id="phoneNumber" name="phoneNumber" type="tel" value={customerDetails.phoneNumber} onChange={handleCustomerDetailChange} required disabled={!!selectedCustomerId} />
+                  <Label htmlFor="phoneNumber">Phone Number *</Label>
+                  <Input 
+                    id="phoneNumber" 
+                    name="phoneNumber" 
+                    type="tel" 
+                    value={customerDetails.phoneNumber} 
+                    onChange={handleCustomerDetailChange} 
+                    required 
+                    disabled={!!selectedCustomerId}
+                    placeholder="Enter phone number"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="deliveryLocation">Delivery Location</Label>
-                  <Input id="deliveryLocation" name="deliveryLocation" value={customerDetails.deliveryLocation} onChange={handleCustomerDetailChange} required />
+                  <Label htmlFor="deliveryLocation">Delivery Location *</Label>
+                  <Input 
+                    id="deliveryLocation" 
+                    name="deliveryLocation" 
+                    value={customerDetails.deliveryLocation} 
+                    onChange={handleCustomerDetailChange} 
+                    required
+                    placeholder="Enter delivery location"
+                  />
                 </div>
               </div>
             </section>
@@ -190,14 +308,18 @@ const AddOrderPage = () => {
               {orderItems.map((item, index) => (
                 <div key={index} className="flex flex-col md:flex-row gap-4 items-end p-3 border rounded-md bg-muted/50">
                   <div className="flex-grow">
-                    <Label htmlFor={`product-${index}`}>Product</Label>
+                    <Label htmlFor={`product-${index}`}>Product *</Label>
                     <Select value={item.productId} onValueChange={(value) => handleItemChange(index, 'productId', value)}>
                       <SelectTrigger id={`product-${index}`}>
                         <SelectValue placeholder="Select product" />
                       </SelectTrigger>
                       <SelectContent>
                         {products.map(product => (
-                          <SelectItem key={product.id} value={product.id} disabled={product.stock <= 0}>
+                          <SelectItem 
+                            key={product.id} 
+                            value={product.id} 
+                            disabled={product.stock <= 0}
+                          >
                             {product.name} ({product.unit}) - Stock: {product.stock}
                           </SelectItem>
                         ))}
@@ -205,7 +327,7 @@ const AddOrderPage = () => {
                     </Select>
                   </div>
                   <div className="w-full md:w-1/4">
-                    <Label htmlFor={`quantity-${index}`}>Quantity</Label>
+                    <Label htmlFor={`quantity-${index}`}>Quantity *</Label>
                     <Input
                       id={`quantity-${index}`}
                       type="number"
@@ -213,6 +335,7 @@ const AddOrderPage = () => {
                       value={item.quantity}
                       onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                       required
+                      placeholder="1"
                     />
                   </div>
                   {orderItems.length > 1 && (
@@ -231,14 +354,21 @@ const AddOrderPage = () => {
               <h2 className="text-lg font-semibold">Order Summary</h2>
               <div>
                 <Label htmlFor="addedBy">Added By</Label>
-                <Input id="addedBy" value={addedBy} onChange={(e) => setAddedBy(e.target.value)} readOnly disabled />
+                <Input 
+                  id="addedBy" 
+                  value={addedBy} 
+                  onChange={(e) => setAddedBy(e.target.value)}
+                  placeholder="Enter your name (optional)"
+                />
               </div>
             </section>
 
             <div className="flex justify-end">
-              <Button type="submit" size="lg">Create Order</Button>
+              <Button onClick={handleSubmit} size="lg" className="min-w-[150px]">
+                Create Order
+              </Button>
             </div>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
