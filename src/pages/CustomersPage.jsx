@@ -1,22 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, User, Eye, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, User, Eye, Edit, Trash2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import CustomerForm from '@/components/forms/CustomerForm';
 import { useToast } from '@/components/ui/use-toast';
+import { customerService } from '@/lib/customerService';
 
 const CustomersPage = () => {
-  const { customers, orders, addCustomer } = useAppContext();
+  const { orders } = useAppContext();
   const { toast } = useToast();
+  
+  // State management
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
+  const [deleteCustomerId, setDeleteCustomerId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await customerService.getAllCustomers();
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load customers.',
+          variant: 'destructive'
+        });
+      } else {
+        setCustomers(data || []);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -24,17 +61,112 @@ const CustomersPage = () => {
     customer.phone.includes(searchTerm)
   );
 
-  const handleAddCustomer = (customerData) => {
-    addCustomer(customerData);
-    setIsAddDialogOpen(false);
+  const handleAddCustomer = async (customerData) => {
+    setActionLoading(true);
+    try {
+      const { data, error } = await customerService.createCustomer(customerData);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to add customer.',
+          variant: 'destructive'
+        });
+      } else {
+        setCustomers(prev => [data, ...prev]);
+        setIsAddDialogOpen(false);
+        toast({
+          title: 'Success',
+          description: 'Customer added successfully.'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditCustomer = async (customerData) => {
+    if (!selectedCustomer) return;
+    
+    setActionLoading(true);
+    try {
+      const { data, error } = await customerService.updateCustomer(selectedCustomer.id, customerData);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to update customer.',
+          variant: 'destructive'
+        });
+      } else {
+        setCustomers(prev => prev.map(customer => 
+          customer.id === selectedCustomer.id ? data : customer
+        ));
+        setIsEditDialogOpen(false);
+        setSelectedCustomer(null);
+        toast({
+          title: 'Success',
+          description: 'Customer updated successfully.'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteCustomerId) return;
+
+    setActionLoading(true);
+    try {
+      const { error } = await customerService.deleteCustomer(deleteCustomerId);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to delete customer.',
+          variant: 'destructive'
+        });
+      } else {
+        setCustomers(prev => prev.filter(customer => customer.id !== deleteCustomerId));
+        setDeleteCustomerId(null);
+        toast({
+          title: 'Success',
+          description: 'Customer deleted successfully.'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive'
+      });
+    } finally {
+      setActionLoading(false);
+    }
   };
   
   const toggleCustomerDetails = (customerId) => {
     setExpandedCustomerId(expandedCustomerId === customerId ? null : customerId);
   };
 
+  const openEditDialog = (customer) => {
+    setSelectedCustomer(customer);
+    setIsEditDialogOpen(true);
+  };
+
   const getCustomerOrders = (customerId) => {
-    return orders.filter(order => order.customerId === customerId).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders.filter(order => order.customerId === customerId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   };
 
   const containerVariants = {
@@ -46,6 +178,15 @@ const CustomersPage = () => {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading customers...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -64,7 +205,11 @@ const CustomersPage = () => {
             <DialogHeader>
               <DialogTitle>Add New Customer</DialogTitle>
             </DialogHeader>
-            <CustomerForm onSubmit={handleAddCustomer} onCancel={() => setIsAddDialogOpen(false)} />
+            <CustomerForm 
+              onSubmit={handleAddCustomer} 
+              onCancel={() => setIsAddDialogOpen(false)}
+              loading={actionLoading}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -90,11 +235,11 @@ const CustomersPage = () => {
             {filteredCustomers.map(customer => (
               <motion.div key={customer.id} variants={itemVariants} layout>
                 <Card className="overflow-hidden">
-                  <div 
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
-                    onClick={() => toggleCustomerDetails(customer.id)}
-                  >
-                    <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-between p-4">
+                    <div 
+                      className="flex items-center space-x-3 cursor-pointer flex-1"
+                      onClick={() => toggleCustomerDetails(customer.id)}
+                    >
                       <div className="p-2 rounded-full bg-primary/10">
                         <User className="h-5 w-5 text-primary" />
                       </div>
@@ -103,9 +248,53 @@ const CustomersPage = () => {
                         <p className="text-sm text-muted-foreground">{customer.city} - {customer.phone}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon">
-                      {expandedCustomerId === customer.id ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => openEditDialog(customer)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete {customer.name}? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                setDeleteCustomerId(customer.id);
+                                handleDeleteCustomer();
+                              }}
+                              disabled={actionLoading}
+                            >
+                              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => toggleCustomerDetails(customer.id)}
+                      >
+                        {expandedCustomerId === customer.id ? 
+                          <ChevronUp className="h-5 w-5" /> : 
+                          <ChevronDown className="h-5 w-5" />
+                        }
+                      </Button>
+                    </div>
                   </div>
                   
                   <AnimatePresence>
@@ -125,7 +314,13 @@ const CustomersPage = () => {
                                 <li key={order.id} className="p-2 border rounded-md text-sm">
                                   <div className="flex justify-between">
                                     <span>Order ID: {order.id.substring(0,8)}...</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${order.status === 'Confirmed' ? 'bg-green-100 text-green-700' : order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{order.status}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                      order.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
+                                      order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' : 
+                                      'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {order.status}
+                                    </span>
                                   </div>
                                   <p>Date: {new Date(order.createdAt).toLocaleDateString()}</p>
                                   <p>Items: {order.items.reduce((sum, item) => sum + item.quantity, 0)}</p>
@@ -153,6 +348,24 @@ const CustomersPage = () => {
           </p>
         </div>
       )}
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <CustomerForm 
+            customer={selectedCustomer}
+            onSubmit={handleEditCustomer} 
+            onCancel={() => {
+              setIsEditDialogOpen(false);
+              setSelectedCustomer(null);
+            }}
+            loading={actionLoading}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
