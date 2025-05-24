@@ -47,6 +47,7 @@ const Layout = ({ children, onLogout }) => {
 
   return (
     <div className={cn("min-h-screen flex flex-col", darkMode ? 'dark' : '')}>
+      {/* Mobile Header */}
       <header className="lg:hidden flex items-center justify-between p-4 border-b bg-white dark:bg-gray-900">
         <div className="flex items-center space-x-2">
           <Button 
@@ -64,15 +65,16 @@ const Layout = ({ children, onLogout }) => {
       </header>
 
       <div className="flex flex-1">
-        <motion.aside 
-          className={cn(
-            "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r shadow-lg lg:shadow-none transition-all lg:translate-x-0 lg:static",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-          initial={false}
-          animate={{ x: sidebarOpen ? 0 : -320 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
+        {/* Sidebar - Always visible on desktop, toggleable on mobile */}
+        <aside className={cn(
+          "w-64 bg-white dark:bg-gray-900 border-r shadow-lg transition-all duration-300",
+          // Desktop: always visible
+          "hidden lg:flex lg:flex-col lg:static lg:translate-x-0",
+          // Mobile: fixed overlay that slides in/out
+          "lg:shadow-none",
+          sidebarOpen && "fixed inset-y-0 left-0 z-50 flex flex-col translate-x-0",
+          !sidebarOpen && "lg:flex"
+        )}>
           <div className="flex flex-col h-full">
             <div className="p-4 border-b flex items-center justify-between">
               <Link to="/" className="flex items-center space-x-2">
@@ -97,7 +99,7 @@ const Layout = ({ children, onLogout }) => {
                   key={item.path} 
                   to={item.path}
                   className={cn(
-                    "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+                    "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors relative",
                     location.pathname === item.path 
                       ? "bg-primary text-primary-foreground" 
                       : "hover:bg-secondary"
@@ -141,8 +143,9 @@ const Layout = ({ children, onLogout }) => {
               </div>
             </div>
           </div>
-        </motion.aside>
+        </aside>
 
+        {/* Mobile Overlay */}
         {sidebarOpen && (
           <motion.div 
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -153,6 +156,7 @@ const Layout = ({ children, onLogout }) => {
           />
         )}
 
+        {/* Main Content */}
         <main className="flex-1 p-4 lg:p-8 overflow-auto bg-muted/30 dark:bg-gray-800">
           {children}
         </main>
