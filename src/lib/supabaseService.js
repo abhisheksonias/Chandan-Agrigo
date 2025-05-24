@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Replace with your Supabase project credentials
-const supabaseUrl = import.meta.env.REACT_APP_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.REACT_APP_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl =  import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -166,107 +166,3 @@ export const userService = {
   }
 };
 
-// Database functions for transport companies
-// export const transportService = {
-//   // Create a new transport company - stores form data in the transport_companies table
-//   async addTransport(transportData) {
-//     try {
-//       // Extract name and address from the form data
-//       const { name, address } = transportData;
-      
-//       // Create an object with the required fields for the transport_companies table
-//       const newTransport = {
-//         name,
-//         address,
-//         created_at: new Date().toISOString(),
-//         updated_at: new Date().toISOString()
-//       };
-
-//       // Insert the new transport into Supabase
-//       const { data, error } = await supabase
-//         .from('transport_companies')
-//         .insert([newTransport])
-//         .select();
-
-//       if (error) throw error;
-//       return { success: true, data: data[0] };
-//     } catch (error) {
-//       console.error('Add transport error:', error);
-//       return { success: false, error: error.message };
-//     }
-//   },
-  
-//   // Get all transport companies
-//   async getAllTransports() {
-//     try {
-//       const { data, error } = await supabase
-//         .from('transport_companies')
-//         .select('*')
-//         .order('name');
-
-//       if (error) throw error;
-//       return { success: true, data };
-//     } catch (error) {
-//       console.error('Get transports error:', error);
-//       return { success: false, error: error.message, data: [] };
-//     }
-//   },
-
-//   // Update a transport company
-//   async updateTransport(id, transportData) {
-//     try {
-//       const { name, address } = transportData;
-      
-//       const updateData = {
-//         name,
-//         address,
-//         updated_at: new Date().toISOString()
-//       };
-
-//       const { data, error } = await supabase
-//         .from('transport_companies')
-//         .update(updateData)
-//         .eq('id', id)
-//         .select();
-
-//       if (error) throw error;
-//       return { success: true, data: data[0] };
-//     } catch (error) {
-//       console.error('Update transport error:', error);
-//       return { success: false, error: error.message };
-//     }
-//   },
-
-//   // Delete a transport company
-//   async deleteTransport(id) {
-//     try {
-//       const { error } = await supabase
-//         .from('transport_companies')
-//         .delete()
-//         .eq('id', id);
-
-//       if (error) throw error;
-//       return { success: true };
-//     } catch (error) {
-//       console.error('Delete transport error:', error);
-//       return { success: false, error: error.message };
-//     }
-//   },
-
-//   // Search for transport companies
-//   async searchTransports(searchTerm) {
-//     try {
-//       const { data, error } = await supabase
-//         .from('transport_companies')
-//         .select('*')
-//         .or(`name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%`)
-//         .order('name');
-
-//       if (error) throw error;
-//       return { success: true, data };
-//     } catch (error) {
-//       console.error('Search transports error:', error);
-//       return { success: false, error: error.message, data: [] };
-//     }
-//   }
-// };
