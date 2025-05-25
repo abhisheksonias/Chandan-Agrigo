@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -12,11 +12,12 @@ import {
   X, 
   LogOut, 
   Moon, 
-  Sun,
-  Building
+  Sun
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAppContext } from '@/context/AppContext';
+import { userService } from '@/lib/supabaseService';
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -30,8 +31,29 @@ const sidebarItems = [
 const Layout = ({ children, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [userData, setUserData] = useState({ name: '', email: '' });
+  const [userInitials, setUserInitials] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+  const { session } = useAppContext() || {};
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (session?.user?.id) {
+        const { success, data } = await userService.getUserById(session.user.id);
+        if (success && data) {
+          setUserData(data);
+          
+          // Extract initials from name
+          const nameWords = data.name?.split(' ') || [];
+          const initials = nameWords.map(word => word[0]?.toUpperCase() || '').join('').slice(0, 2);
+          setUserInitials(initials || 'U');
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [session]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -68,8 +90,8 @@ const Layout = ({ children, onLogout }) => {
         {/* Sidebar - Always visible on desktop, toggleable on mobile */}
         <aside className={cn(
           "w-64 bg-white dark:bg-gray-900 border-r shadow-lg transition-all duration-300",
-          // Desktop: always visible
-          "hidden lg:flex lg:flex-col lg:static lg:translate-x-0",
+          // Desktop: fixed position with full height
+          "hidden lg:flex lg:flex-col lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:translate-x-0",
           // Mobile: fixed overlay that slides in/out
           "lg:shadow-none",
           sidebarOpen && "fixed inset-y-0 left-0 z-50 flex flex-col translate-x-0",
@@ -78,8 +100,12 @@ const Layout = ({ children, onLogout }) => {
           <div className="flex flex-col h-full">
             <div className="p-4 border-b flex items-center justify-between">
               <Link to="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-md gradient-bg flex items-center justify-center">
-                  <Building className="h-5 w-5 text-white" />
+                <div className="w-10 h-10 rounded-md  flex items-center justify-center overflow-hidden">
+                  <img 
+                    src="./Public/CAPL_Logo.png" 
+                    alt="AgriPro Logo" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <span className="text-xl font-bold">AgriPro Sales</span>
               </Link>
@@ -120,24 +146,25 @@ const Layout = ({ children, onLogout }) => {
                 </Link>
               ))}
             </nav>
-            
-            <div className="p-4 border-t mt-auto">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-medium">AD</span>
+              <div className="p-4 border-t mt-auto">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center space-x-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary font-medium">{userInitials}</span>
                   </div>
-                  <div>
-                    <p className="font-medium">Admin</p>
-                    <p className="text-sm text-muted-foreground">System Administrator</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{userData.name || 'User'}</p>
+                    <p className="text-sm text-muted-foreground truncate">{userData.email || 'Loading...'}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="hidden lg:flex">
-                    {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" size="sm" onClick={toggleDarkMode} className="hidden lg:flex">
+                    {darkMode ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                    {darkMode ? 'Light' : 'Dark'}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={handleLogout}>
-                    <LogOut className="h-5 w-5" />
+                  <Button variant="ghost" size="sm" onClick={handleLogout} className="ml-auto">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
                   </Button>
                 </div>
               </div>
@@ -157,7 +184,7 @@ const Layout = ({ children, onLogout }) => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-auto bg-muted/30 dark:bg-gray-800">
+        <main className="flex-1 p-4 lg:p-8 lg:ml-64 overflow-auto bg-muted/30 dark:bg-gray-800">
           {children}
         </main>
       </div>
