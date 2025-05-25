@@ -91,22 +91,24 @@ const useOrders = (supabase, toast, session, products) => {
     if (newStatus === 'Confirmed') {
       toastMessage = `Order ${orderId} confirmed.`;
     } else if (newStatus === 'Partial Dispatch' && details) {
+      // Update the items with new dispatched quantities
       const updatedItems = orderToUpdate.items.map(item => {
         const dispatchInfo = details.dispatchedItems.find(d => d.productId === item.productId);
         if (dispatchInfo) {
-          return { ...item, dispatchedQuantity: (item.dispatchedQuantity || 0) + dispatchInfo.quantity };
+          return { 
+            ...item, 
+            dispatchedQuantity: (item.dispatchedQuantity || 0) + dispatchInfo.quantity 
+          };
         }
         return item;
       });
       
-      const newDispatchedItems = details.dispatchedItems.map(item => ({
-        ...item,
-        dispatchedAt: new Date().toISOString()
-      }));
+      // Add the new dispatched items to the existing dispatched_items array
+      const existingDispatchedItems = orderToUpdate.dispatched_items || [];
+      const newDispatchedItems = [...existingDispatchedItems, ...details.dispatchedItems];
 
-      // Simplified delivered_by - just store transport names
+      // Update delivered_by array with transport name
       let deliveredByData = orderToUpdate.delivered_by || [];
-      
       if (details.transportName && !deliveredByData.includes(details.transportName)) {
         deliveredByData = [...deliveredByData, details.transportName];
       }
@@ -114,19 +116,26 @@ const useOrders = (supabase, toast, session, products) => {
       updatePayload = {
         ...updatePayload,
         items: updatedItems,
-        dispatched_items: [...(orderToUpdate.dispatched_items || []), ...newDispatchedItems],
-        delivered_by: deliveredByData
+        dispatched_items: newDispatchedItems,
+        delivered_by: deliveredByData,
+        updated_at: new Date().toISOString()
       };
       toastMessage = `Order ${orderId} partially dispatched.`;
     } else if (newStatus === 'Full Dispatch') {
+      // For full dispatch, mark all items as fully dispatched
       const fullyDispatchedItems = orderToUpdate.items.map(item => ({ 
         ...item, 
         dispatchedQuantity: item.quantity 
       }));
 
-      // Simplified delivered_by - just store transport names
+      // Add remaining items to dispatched_items if details provided
+      let newDispatchedItems = orderToUpdate.dispatched_items || [];
+      if (details && details.dispatchedItems) {
+        newDispatchedItems = [...newDispatchedItems, ...details.dispatchedItems];
+      }
+
+      // Update delivered_by array with transport name
       let deliveredByData = orderToUpdate.delivered_by || [];
-      
       if (details && details.transportName && !deliveredByData.includes(details.transportName)) {
         deliveredByData = [...deliveredByData, details.transportName];
       }
@@ -134,16 +143,20 @@ const useOrders = (supabase, toast, session, products) => {
       updatePayload = { 
         ...updatePayload, 
         items: fullyDispatchedItems,
-        delivered_by: deliveredByData
+        dispatched_items: newDispatchedItems,
+        delivered_by: deliveredByData,
+        updated_at: new Date().toISOString()
       };
       toastMessage = `Order ${orderId} fully dispatched.`;
     } else if (newStatus === 'Delivered') {
+      updatePayload.updated_at = new Date().toISOString();
       toastMessage = `Order ${orderId} marked as delivered.`;
     } else if (newStatus === 'Cancelled') {
+      updatePayload.updated_at = new Date().toISOString();
       toastMessage = `Order ${orderId} cancelled.`;
     }
 
-    // Removed user restriction - any admin can update any order
+    // Update the order in database
     const { data, error } = await supabase
       .from('orders')
       .update(updatePayload)
@@ -176,7 +189,8 @@ const useOrders = (supabase, toast, session, products) => {
       city: updatedDetails.city,
       phone_number: updatedDetails.phoneNumber,
       delivery_location: updatedDetails.deliveryLocation,
-      items: updatedDetails.items
+      items: updatedDetails.items,
+      updated_at: new Date().toISOString()
     };
 
     // Removed user restriction - any admin can update any order

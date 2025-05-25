@@ -104,74 +104,42 @@ const AnalyticsBoardPage = () => {
         });
         return;
       }
-
-      let itemsToProcess = [];
-      let stockCheckResults = [];
-
-      if (dispatchType === 'full') {
-        // For full dispatch, process all items with their full quantities
-        itemsToProcess = selectedOrder.items.map(item => ({
-          ...item,
-          quantityToDispatch: item.quantity || 0
-        }));
-      } else if (dispatchType === 'partial') {
-        // For partial dispatch, use the quantities specified in dispatchData
-        if (!dispatchData.items || !Array.isArray(dispatchData.items)) {
-          toast({
-            title: "Error",
-            description: "Invalid dispatch data provided",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        itemsToProcess = dispatchData.items.filter(item => 
-          item.quantityToDispatch && item.quantityToDispatch > 0
-        );
+  
+      const { dispatchedItems, transportName, dispatchType } = dispatchData;
+  
+      if (!dispatchedItems || dispatchedItems.length === 0) {
+        toast({
+          title: "Error",
+          description: "No items selected for dispatch",
+          variant: "destructive",
+        });
+        return;
       }
-
+  
       // Check stock availability for items being dispatched
-      for (const item of itemsToProcess) {
+      let stockCheckResults = [];
+      for (const item of dispatchedItems) {
         const product = products?.find(p => p.id === item.productId);
         
         if (!product) {
           stockCheckResults.push({
-            productName: item.productName || item.product_name,
-            error: `Product not found: ${item.productName || item.product_name}`
+            productName: item.productName,
+            error: `Product not found: ${item.productName}`
           });
           continue;
         }
-
+  
         const currentStock = product.stock || 0;
-        const quantityToDispatch = item.quantityToDispatch || 0;
-
-        // For partial dispatch, check if we're dispatching more than available
-        // For items that were previously partially dispatched, account for that
-        let availableForDispatch = currentStock;
-        
-        // If this is a partial dispatch update, we need to check against remaining stock
-        if (dispatchType === 'partial' && selectedOrder.status === 'Partial Dispatch') {
-          const previouslyDispatched = item.dispatchedQuantity || 0;
-          const totalRequested = quantityToDispatch;
-          
-          // Check if total requested exceeds what's available
-          if (totalRequested > currentStock) {
-            stockCheckResults.push({
-              productName: item.productName || item.product_name,
-              error: `Insufficient stock for ${item.productName || item.product_name}. Available: ${currentStock}, Requested: ${totalRequested}`
-            });
-          }
-        } else {
-          // For new dispatches or full dispatch
-          if (currentStock < quantityToDispatch) {
-            stockCheckResults.push({
-              productName: item.productName || item.product_name,
-              error: `Insufficient stock for ${item.productName || item.product_name}. Available: ${currentStock}, Requested: ${quantityToDispatch}`
-            });
-          }
+        const quantityToDispatch = item.quantity || 0;
+  
+        if (currentStock < quantityToDispatch) {
+          stockCheckResults.push({
+            productName: item.productName,
+            error: `Insufficient stock for ${item.productName}. Available: ${currentStock}, Requested: ${quantityToDispatch}`
+          });
         }
       }
-
+  
       // If there are stock issues, show error and don't proceed
       if (stockCheckResults.length > 0) {
         const errorMessages = stockCheckResults.map(result => result.error).join('\n');
@@ -182,41 +150,77 @@ const AnalyticsBoardPage = () => {
         });
         return;
       }
-
+  
       // All stock checks passed, proceed with stock deduction
-      const stockUpdatePromises = itemsToProcess.map(async (item) => {
+      const stockUpdatePromises = dispatchedItems.map(async (item) => {
         const product = products.find(p => p.id === item.productId);
         if (product && updateProductStock) {
-          const quantityToDeduct = item.quantityToDispatch || 0;
+          const quantityToDeduct = item.quantity || 0;
           const newStock = (product.stock || 0) - quantityToDeduct;
-          return updateProductStock(item.productId, Math.max(0, newStock)); // Ensure stock doesn't go negative
+          return updateProductStock(item.productId, Math.max(0, newStock));
         }
       });
-
+  
       // Execute all stock updates
       await Promise.all(stockUpdatePromises.filter(Boolean));
-
-      // Update order status based on dispatch type
-      if (dispatchType === 'full') {
-        updateOrderStatus(selectedOrder.id, 'Full Dispatch', dispatchData);
-      } else if (dispatchType === 'partial') {
-        updateOrderStatus(selectedOrder.id, 'Partial Dispatch', dispatchData);
+  
+      // Update order items with new dispatched quantities
+      const updatedItems = selectedOrder.items.map(orderItem => {
+        const dispatchedItem = dispatchedItems.find(item => item.productId === orderItem.productId);
+        
+        if (dispatchedItem) {
+          const previouslyDispatched = orderItem.dispatchedQuantity || 0;
+          const currentDispatch = dispatchedItem.quantity || 0;
+          const newDispatchedQuantity = previouslyDispatched + currentDispatch;
+          
+          return {
+            ...orderItem,
+            dispatchedQuantity: newDispatchedQuantity
+          };
+        }
+        
+        return orderItem;
+      });
+  
+      // Determine if this is a full or partial dispatch
+      const isFullyDispatched = updatedItems.every(item => 
+        (item.dispatchedQuantity || 0) >= (item.quantity || 0)
+      );
+  
+      const newStatus = isFullyDispatched ? 'Full Dispatch' : 'Partial Dispatch';
+  
+      // Add the dispatched items to the existing dispatched_items array
+      const existingDispatchedItems = selectedOrder.dispatched_items || [];
+      const newDispatchedItems = [...existingDispatchedItems, ...dispatchedItems];
+  
+      // Update delivered_by array (keeping it simple with transport names)
+      let deliveredByData = selectedOrder.delivered_by || [];
+      if (transportName && !deliveredByData.includes(transportName)) {
+        deliveredByData = [...deliveredByData, transportName];
       }
-
+  
+      // Prepare the details object for updateOrderStatus
+      const details = {
+        dispatchedItems: dispatchedItems,
+        transportName: transportName
+      };
+  
+      // Call updateOrderStatus with the new status and details
+      updateOrderStatus(selectedOrder.id, newStatus, details);
+  
       // Close dialog and reset state
       setIsDispatchDialogOpen(false);
       setSelectedOrder(null);
-
+  
       // Show success message
-      const dispatchedItemsCount = itemsToProcess.length;
-      const totalQuantityDispatched = itemsToProcess.reduce((sum, item) => sum + (item.quantityToDispatch || 0), 0);
+      const totalQuantityDispatched = dispatchedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
       
       toast({
-        title: `${dispatchType === 'full' ? 'Full' : 'Partial'} Dispatch Successful`,
-        description: `Successfully dispatched ${totalQuantityDispatched} items across ${dispatchedItemsCount} product(s). Stock has been updated accordingly.`,
+        title: `${newStatus} Successful`,
+        description: `Successfully dispatched ${totalQuantityDispatched} items across ${dispatchedItems.length} product(s). Stock has been updated accordingly.`,
         variant: "default",
       });
-
+  
     } catch (error) {
       console.error('Error processing dispatch:', error);
       toast({

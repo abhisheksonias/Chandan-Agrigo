@@ -15,14 +15,20 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
   useEffect(() => {
     if (order && order.items) {
       setDispatchedItems(
-        order.items.map(item => ({
-          productId: item.productId,
-          productName: item.productName,
-          orderedQuantity: item.quantity,
-          previouslyDispatched: item.dispatchedQuantity || 0,
-          currentDispatchQuantity: dispatchType === 'full' ? (item.quantity - (item.dispatchedQuantity || 0)) : 0,
-          unit: item.unit,
-        }))
+        order.items.map(item => {
+          const previouslyDispatched = item.dispatchedQuantity || 0;
+          const remainingQuantity = (item.quantity || 0) - previouslyDispatched;
+          
+          return {
+            productId: item.productId,
+            productName: item.productName || item.product_name,
+            orderedQuantity: item.quantity || 0,
+            previouslyDispatched: previouslyDispatched,
+            remainingQuantity: remainingQuantity,
+            currentDispatchQuantity: dispatchType === 'full' ? remainingQuantity : 0,
+            unit: item.unit || 'units',
+          };
+        })
       );
     }
   }, [order, dispatchType]);
@@ -32,7 +38,7 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     setDispatchedItems(prevItems =>
       prevItems.map(item =>
         item.productId === productId
-          ? { ...item, currentDispatchQuantity: isNaN(newQuantity) ? 0 : newQuantity }
+          ? { ...item, currentDispatchQuantity: isNaN(newQuantity) ? 0 : Math.max(0, newQuantity) }
           : item
       )
     );
@@ -40,6 +46,11 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
 
   const handleTransportChange = (value) => {
     setSelectedTransport(value);
+  };
+
+  const getAvailableStock = (productId) => {
+    const product = allProducts?.find(p => p.id === productId);
+    return product ? (product.stock || 0) : 0;
   };
 
   const handleSubmit = (e) => {
@@ -59,50 +70,60 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     const itemsToSubmit = dispatchedItems
       .filter(item => item.currentDispatchQuantity > 0)
       .map(item => {
-        const product = allProducts.find(p => p.id === item.productId);
-        const availableToDispatch = item.orderedQuantity - item.previouslyDispatched;
-        if (item.currentDispatchQuantity > availableToDispatch) {
-          toast({ title: 'Error', description: `Cannot dispatch more than remaining for ${item.productName}. Max: ${availableToDispatch}`, variant: 'destructive' });
+        const availableStock = getAvailableStock(item.productId);
+        
+        // Check if trying to dispatch more than remaining
+        if (item.currentDispatchQuantity > item.remainingQuantity) {
+          toast({ 
+            title: 'Error', 
+            description: `Cannot dispatch more than remaining for ${item.productName}. Remaining: ${item.remainingQuantity}`, 
+            variant: 'destructive' 
+          });
           isValid = false;
         }
-        if (product && item.currentDispatchQuantity > product.stock) {
-            toast({ title: 'Error', description: `Not enough stock for ${item.productName}. Available: ${product.stock}`, variant: 'destructive' });
-            isValid = false;
+        
+        // Check if trying to dispatch more than available stock
+        if (item.currentDispatchQuantity > availableStock) {
+          toast({ 
+            title: 'Error', 
+            description: `Not enough stock for ${item.productName}. Available: ${availableStock}`, 
+            variant: 'destructive' 
+          });
+          isValid = false;
         }
+        
         return { 
-          productId: item.productId, 
-          quantity: item.currentDispatchQuantity 
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.currentDispatchQuantity, // Changed from quantityToDispatch to quantity to match your DB format
+          dispatchedAt: new Date().toISOString()
         };
       });
 
     if (!isValid) return;
 
     if (dispatchType === 'partial' && itemsToSubmit.length === 0) {
-      toast({ title: 'No items to dispatch', description: 'Please enter quantities for items to dispatch.', variant: 'destructive' });
+      toast({ 
+        title: 'No items to dispatch', 
+        description: 'Please enter quantities for items to dispatch.', 
+        variant: 'destructive' 
+      });
       return;
     }
     
-    const selectedTransportData = transports.find(t => t.id === selectedTransport);
+    const selectedTransportData = transports?.find(t => t.id === selectedTransport);
     
-    // Create dispatch record for delivered_by field
-    const dispatchRecord = {
+    // Structure the data to match your database format and expected structure
+    const dispatchData = {
+      dispatchedItems: itemsToSubmit, // This will be added to the dispatched_items array
       transportId: selectedTransport,
       transportName: selectedTransportData?.name || '',
-      dispatchDate: new Date().toISOString(),
-      items: itemsToSubmit
+      dispatchType: dispatchType,
+      dispatchDate: new Date().toISOString()
     };
     
-    // Pass all necessary data to the parent component
-    onSubmit({ 
-      items: itemsToSubmit.map(item => ({
-        productId: item.productId,
-        quantityToDispatch: item.quantity,  // Map 'quantity' to 'quantityToDispatch'
-        productName: dispatchedItems.find(di => di.productId === item.productId)?.productName
-      })),
-      transportId: selectedTransport,
-      transportName: selectedTransportData?.name || '',
-      dispatchRecord: dispatchRecord
-    });
+    // Pass the dispatch data to the parent component
+    onSubmit(dispatchData);
   };
 
   if (!order) return null;
@@ -139,7 +160,7 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
           </Select>
           {selectedTransport && (
             <div className="text-sm text-muted-foreground">
-              Selected: {transports.find(t => t.id === selectedTransport)?.name}
+              Selected: {transports?.find(t => t.id === selectedTransport)?.name}
             </div>
           )}
         </div>
@@ -148,41 +169,128 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
       {/* Items Section */}
       <div className="space-y-3">
         <h3 className="font-semibold">Items to Dispatch</h3>
-        {dispatchedItems.map(item => (
-          <div key={item.productId} className="p-3 border rounded-md space-y-2">
-            <p className="font-semibold">{item.productName} ({item.unit})</p>
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <p>Ordered: {item.orderedQuantity}</p>
-              <p>Dispatched: {item.previouslyDispatched}</p>
-              <p>Remaining: {item.orderedQuantity - item.previouslyDispatched}</p>
-            </div>
-            {dispatchType === 'partial' && (item.orderedQuantity - item.previouslyDispatched > 0) && (
-              <div>
-                <Label htmlFor={`dispatch-${item.productId}`}>Dispatch Quantity</Label>
-                <Input
-                  id={`dispatch-${item.productId}`}
-                  type="number"
-                  min="0"
-                  max={item.orderedQuantity - item.previouslyDispatched}
-                  value={item.currentDispatchQuantity}
-                  onChange={(e) => handleQuantityChange(item.productId, e.target.value)}
-                />
+        {dispatchedItems.map(item => {
+          const availableStock = getAvailableStock(item.productId);
+          const hasStock = availableStock > 0;
+          const canDispatch = item.remainingQuantity > 0 && hasStock;
+          const maxDispatchable = Math.min(item.remainingQuantity, availableStock);
+          
+          return (
+            <div key={item.productId} className={`p-3 border rounded-md space-y-2 ${
+              !canDispatch ? 'bg-gray-50 opacity-75' : ''
+            }`}>
+              <div className="flex justify-between items-start">
+                <p className="font-semibold">{item.productName} ({item.unit})</p>
+                <div className="text-right text-sm">
+                  <p className={`px-2 py-1 rounded text-xs ${
+                    hasStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    Stock: {availableStock}
+                  </p>
+                </div>
               </div>
-            )}
-            {dispatchType === 'full' && (
-              <p className="text-sm">To Dispatch: {item.currentDispatchQuantity}</p>
-            )}
-            {(item.orderedQuantity - item.previouslyDispatched === 0) && dispatchType === 'partial' && (
-              <p className="text-sm text-green-600">Fully dispatched for this item.</p>
-            )}
+              
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Ordered:</p>
+                  <p className="font-medium">{item.orderedQuantity}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Dispatched:</p>
+                  <p className="font-medium text-blue-600">{item.previouslyDispatched}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Remaining:</p>
+                  <p className={`font-medium ${
+                    item.remainingQuantity > 0 ? 'text-orange-600' : 'text-green-600'
+                  }`}>
+                    {item.remainingQuantity}
+                  </p>
+                </div>
+              </div>
+
+              {item.remainingQuantity === 0 && (
+                <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                  ✅ This item has been fully dispatched
+                </div>
+              )}
+
+              {item.remainingQuantity > 0 && !hasStock && (
+                <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                  ⚠️ No stock available for dispatch
+                </div>
+              )}
+
+              {canDispatch && dispatchType === 'partial' && (
+                <div className="space-y-1">
+                  <Label htmlFor={`dispatch-${item.productId}`}>
+                    Dispatch Quantity (Max: {maxDispatchable})
+                  </Label>
+                  <Input
+                    id={`dispatch-${item.productId}`}
+                    type="number"
+                    min="0"
+                    max={maxDispatchable}
+                    value={item.currentDispatchQuantity}
+                    onChange={(e) => handleQuantityChange(item.productId, e.target.value)}
+                    placeholder={`Enter quantity (0-${maxDispatchable})`}
+                  />
+                </div>
+              )}
+              
+              {canDispatch && dispatchType === 'full' && (
+                <div className="bg-blue-50 p-2 rounded">
+                  <p className="text-sm font-medium text-blue-800">
+                    Will dispatch: {item.currentDispatchQuantity} {item.unit}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Summary Section */}
+      <div className="border-t pt-4">
+        <div className="bg-gray-50 p-3 rounded">
+          <h4 className="font-medium mb-2">Dispatch Summary</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Items to dispatch:</p>
+              <p className="font-medium">
+                {dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length} items
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Total quantity:</p>
+              <p className="font-medium">
+                {dispatchedItems.reduce((sum, item) => sum + item.currentDispatchQuantity, 0)} units
+              </p>
+            </div>
           </div>
-        ))}
+          
+          {/* Preview of what will happen */}
+          <div className="mt-3 p-2 bg-blue-50 rounded">
+            <p className="text-sm font-medium text-blue-800 mb-1">
+              After dispatch, this order will be moved to:
+            </p>
+            <span className="inline-block px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">
+              {dispatchType === 'full' ? 'Full Dispatch' : 'Partial Dispatch'}
+            </span>
+          </div>
+        </div>
       </div>
       
       <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-background py-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">
-          {dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Dispatch Selected'}
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button 
+          type="submit"
+          disabled={dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length === 0}
+          className={dispatchType === 'partial' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+        >
+          {dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Process Partial Dispatch'}
         </Button>
       </div>
     </form>
