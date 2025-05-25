@@ -55,8 +55,30 @@ const TransportsPage = () => {
     setExpandedTransportId(expandedTransportId === transportId ? null : transportId);
   };
 
-  const getTransportOrders = (transportId) => {
-    return orders.filter(order => order.transport_id === transportId).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const getTransportOrders = (transportName) => {
+    return orders.filter(order => {
+      if (!order.delivered_by) return false;
+      // Handle both string and array cases for delivered_by
+      if (Array.isArray(order.delivered_by)) {
+        return order.delivered_by.includes(transportName);
+      }
+      return order.delivered_by === transportName;
+    }).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  };
+
+  // Helper function to calculate total items in an order
+  const getTotalItems = (order) => {
+    if (!order.items) return 0;
+    
+    if (Array.isArray(order.items)) {
+      return order.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    }
+    
+    if (typeof order.items === 'object') {
+      return Object.values(order.items).reduce((sum, quantity) => sum + (quantity || 0), 0);
+    }
+    
+    return 0;
   };
 
   const containerVariants = {
@@ -132,6 +154,9 @@ const TransportsPage = () => {
                       <div>
                         <p className="font-semibold">{transport.name}</p>
                         <p className="text-sm text-muted-foreground">{transport.address}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {getTransportOrders(transport.name).length} deliveries
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-1">
@@ -157,17 +182,25 @@ const TransportsPage = () => {
                         className="border-t"
                       >
                         <CardContent className="p-4">
-                          <h3 className="text-md font-semibold mb-2">Delivery History</h3>
-                          {getTransportOrders(transport.id).length > 0 ? (
+                          <h3 className="text-md font-semibold mb-3">Delivery History</h3>
+                          {getTransportOrders(transport.name).length > 0 ? (
                             <ul className="space-y-2 max-h-60 overflow-y-auto">
-                              {getTransportOrders(transport.id).map(order => (
+                              {getTransportOrders(transport.name).map(order => (
                                 <li key={order.id} className="p-2 border rounded-md text-sm bg-background">
                                   <div className="flex justify-between">
                                     <span>Order ID: {order.id.substring(0,8)}...</span>
-                                    <span>To: {order.customer_name}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                      order.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
+                                      order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' : 
+                                      'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {order.status}
+                                    </span>
                                   </div>
+                                  <p>Customer: {order.customer_name}</p>
                                   <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
-                                  <p>Status: {order.status}</p>
+                                  <p>Location: {order.delivery_location}</p>
+                                  <p>Items: {getTotalItems(order)}</p>
                                 </li>
                               ))}
                             </ul>
