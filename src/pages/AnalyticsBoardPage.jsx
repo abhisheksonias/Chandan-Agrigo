@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, CheckCircle, Clock, Truck, PackageCheck, PackageX, Edit, Send, MapPin, User, Phone, Calendar, Search, Filter, X } from 'lucide-react';
+import { BarChart3, CheckCircle, Clock, Truck, PackageCheck, PackageX, Edit, Send, MapPin, User, Phone, Calendar, Search, Filter, X, DownloadCloud } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/components/ui/use-toast';
 import OrderDetailsForm from '@/components/forms/OrderDetailsForm'; 
 import DispatchForm from '@/components/forms/DispatchForm';
+import * as XLSX from 'xlsx';
 
 const AnalyticsBoardPage = () => {
   const { orders, products, updateOrderStatus, updateOrderDetails, updateProductStock } = useAppContext();
@@ -302,6 +303,80 @@ const AnalyticsBoardPage = () => {
     });
   };
 
+  // Function to export orders data to Excel
+  const exportToExcel = () => {
+    try {
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Format orders data for export
+      const formattedOrders = filteredOrders.map(order => {
+        // Create a basic order info object
+        const baseOrderInfo = {
+          'Order ID': order.id,
+          'Customer': order.customer_name || 'N/A',
+          'Phone': order.phone_number || 'N/A',
+          'City': order.city || 'N/A',
+          'Delivery Location': order.delivery_location || 'N/A',
+          'Status': order.status || 'Unknown',
+          'Order Date': formatDate(order.created_at),
+          'Added By': order.added_by || 'N/A',
+          // 'Last Updated': order.updated_at ? formatDate(order.updated_at) : 'N/A',
+        };
+        
+        // Handle transport info for dispatched orders
+        if (order.delivered_by && Array.isArray(order.delivered_by) && order.delivered_by.length > 0) {
+          baseOrderInfo['Transport'] = getTransportNames(order.delivered_by).join(', ');
+        } else {
+          baseOrderInfo['Transport'] = 'N/A';
+        }
+        
+        // If order has no items, return just the order info
+        if (!order.items || order.items.length === 0) {
+          return {
+            ...baseOrderInfo,
+            'Product': 'No items',
+            'Quantity': 0,
+            'Unit': '',
+            'Dispatched Quantity': 0
+          };
+        }
+        
+        // If order has items, return one row per item with order info repeated
+        return order.items.map(item => ({
+          ...baseOrderInfo,
+          'Product': item.productName || item.product_name || 'Unknown Product',
+          'Quantity': item.quantity || 0,
+          'Unit': item.unit || 'units',
+          'Dispatched Quantity': item.dispatchedQuantity || 0
+        }));
+      }).flat(); // Flatten the array of arrays
+      
+      // Create worksheet from data
+      const ws = XLSX.utils.json_to_sheet(formattedOrders);
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+      
+      // Generate Excel file
+      const fileName = `Chandan_Agrico_Orders_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      // Show success toast
+      toast({
+        title: 'Export Successful',
+        description: `${formattedOrders.length} orders exported to Excel.`,
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'An error occurred while exporting to Excel.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const renderOrderCard = (order, actions) => {
     const transportNames = getTransportNames(order.delivered_by);
     const isDispatched = order.status === 'Full Dispatch' || order.status === 'Partial Dispatch';
@@ -542,6 +617,16 @@ const AnalyticsBoardPage = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Analytics Board</h1>
           <p className="text-muted-foreground">Track and manage your orders through different stages.</p>
+        </div>
+        <div>
+          <Button 
+            onClick={exportToExcel} 
+            className="flex items-center gap-2"
+            variant="outline"
+          >
+            <DownloadCloud className="h-4 w-4" />
+            Export to Excel
+          </Button>
         </div>
       </div>
 
