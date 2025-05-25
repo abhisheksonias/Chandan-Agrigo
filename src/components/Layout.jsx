@@ -79,7 +79,7 @@ const Layout = ({ children, onLogout }) => {
           >
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-xl font-bold">AgriPro Sales</h1>
+          <h1 className="text-xl font-bold">Chandan Agrico</h1>
         </div>
         <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
           {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -107,7 +107,7 @@ const Layout = ({ children, onLogout }) => {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <span className="text-xl font-bold">AgriPro Sales</span>
+                <span className="text-xl font-bold">Chandan Agrico</span>
               </Link>
               <Button 
                 variant="ghost" 

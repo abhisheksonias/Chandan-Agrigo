@@ -138,7 +138,7 @@ const RegistrationPage = () => {
             <div className="mx-auto mb-4 p-3 rounded-full bg-primary/20 w-fit">
               <Building className="h-10 w-10 text-primary" />
             </div>
-            <CardTitle className="text-3xl font-bold">AgriPro Sales</CardTitle>
+            <CardTitle className="text-3xl font-bold">Chandan Agrico</CardTitle>
             <CardDescription>Create your account</CardDescription>
           </CardHeader>
           <CardContent>
@@ -267,7 +267,7 @@ const RegistrationPage = () => {
             </div>
           </CardContent>
           <CardFooter className="text-center text-xs text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} AgriPro Sales. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Chandan Agrico. All rights reserved.</p>
           </CardFooter>
         </Card>
       </motion.div>
