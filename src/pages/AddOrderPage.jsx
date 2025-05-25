@@ -147,18 +147,8 @@ const AddOrderPage = () => {
       return false;
     }
 
-    // Check stock availability
-    for (const item of orderItems) {
-      const product = products.find(p => p.id === item.productId);
-      if (product && product.stock < item.quantity) {
-        toast({ 
-          title: 'Error', 
-          description: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`, 
-          variant: 'destructive' 
-        });
-        return false;
-      }
-    }
+    // Stock availability check removed - orders can be created regardless of current stock levels
+    // Stock validation will be handled during the dispatch process
 
     return true;
   };
@@ -324,8 +314,7 @@ const AddOrderPage = () => {
                         {products.map(product => (
                           <SelectItem 
                             key={product.id} 
-                            value={product.id} 
-                            disabled={product.stock <= 0}
+                            value={product.id}
                           >
                             {product.name} ({product.unit}) - Stock: {product.stock}
                           </SelectItem>

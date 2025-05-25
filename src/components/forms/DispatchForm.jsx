@@ -94,7 +94,11 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     
     // Pass all necessary data to the parent component
     onSubmit({ 
-      dispatchedItems: itemsToSubmit,
+      items: itemsToSubmit.map(item => ({
+        productId: item.productId,
+        quantityToDispatch: item.quantity,  // Map 'quantity' to 'quantityToDispatch'
+        productName: dispatchedItems.find(di => di.productId === item.productId)?.productName
+      })),
       transportId: selectedTransport,
       transportName: selectedTransportData?.name || '',
       dispatchRecord: dispatchRecord

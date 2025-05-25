@@ -13,7 +13,7 @@ import OrderDetailsForm from '@/components/forms/OrderDetailsForm';
 import DispatchForm from '@/components/forms/DispatchForm';
 
 const AnalyticsBoardPage = () => {
-  const { orders, updateOrderStatus, updateOrderDetails } = useAppContext();
+  const { orders, products, updateOrderStatus, updateOrderDetails, updateProductStock } = useAppContext();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('total_orders');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -53,8 +53,27 @@ const AnalyticsBoardPage = () => {
   const getOrdersByStatus = (status) => filteredOrders.filter(order => order.status === status);
   const getDispatchedOrders = () => filteredOrders.filter(order => order.status === 'Full Dispatch' || order.status === 'Partial Dispatch');
 
-  const handleConfirmOrder = (orderId) => {
-    updateOrderStatus(orderId, 'Confirmed');
+  // Simplified handleConfirmOrder function without stock deduction
+  const handleConfirmOrder = async (orderId) => {
+    try {
+      // Simply update order status to confirmed
+      updateOrderStatus(orderId, 'Confirmed');
+
+      // Show success message
+      toast({
+        title: "Order Confirmed",
+        description: "Order has been confirmed successfully and is ready for dispatch.",
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error('Error confirming order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to confirm order. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenEditOrderDialog = (order) => {
@@ -74,14 +93,138 @@ const AnalyticsBoardPage = () => {
     setIsDispatchDialogOpen(true);
   };
 
-  const handleDispatch = (dispatchData) => {
-    if (dispatchType === 'full') {
-      updateOrderStatus(selectedOrder.id, 'Full Dispatch', dispatchData);
-    } else if (dispatchType === 'partial') {
-      updateOrderStatus(selectedOrder.id, 'Partial Dispatch', dispatchData);
+  // Updated handleDispatch function with stock deduction logic
+  const handleDispatch = async (dispatchData) => {
+    try {
+      if (!selectedOrder || !selectedOrder.items) {
+        toast({
+          title: "Error",
+          description: "Order not found or has no items",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let itemsToProcess = [];
+      let stockCheckResults = [];
+
+      if (dispatchType === 'full') {
+        // For full dispatch, process all items with their full quantities
+        itemsToProcess = selectedOrder.items.map(item => ({
+          ...item,
+          quantityToDispatch: item.quantity || 0
+        }));
+      } else if (dispatchType === 'partial') {
+        // For partial dispatch, use the quantities specified in dispatchData
+        if (!dispatchData.items || !Array.isArray(dispatchData.items)) {
+          toast({
+            title: "Error",
+            description: "Invalid dispatch data provided",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        itemsToProcess = dispatchData.items.filter(item => 
+          item.quantityToDispatch && item.quantityToDispatch > 0
+        );
+      }
+
+      // Check stock availability for items being dispatched
+      for (const item of itemsToProcess) {
+        const product = products?.find(p => p.id === item.productId);
+        
+        if (!product) {
+          stockCheckResults.push({
+            productName: item.productName || item.product_name,
+            error: `Product not found: ${item.productName || item.product_name}`
+          });
+          continue;
+        }
+
+        const currentStock = product.stock || 0;
+        const quantityToDispatch = item.quantityToDispatch || 0;
+
+        // For partial dispatch, check if we're dispatching more than available
+        // For items that were previously partially dispatched, account for that
+        let availableForDispatch = currentStock;
+        
+        // If this is a partial dispatch update, we need to check against remaining stock
+        if (dispatchType === 'partial' && selectedOrder.status === 'Partial Dispatch') {
+          const previouslyDispatched = item.dispatchedQuantity || 0;
+          const totalRequested = quantityToDispatch;
+          
+          // Check if total requested exceeds what's available
+          if (totalRequested > currentStock) {
+            stockCheckResults.push({
+              productName: item.productName || item.product_name,
+              error: `Insufficient stock for ${item.productName || item.product_name}. Available: ${currentStock}, Requested: ${totalRequested}`
+            });
+          }
+        } else {
+          // For new dispatches or full dispatch
+          if (currentStock < quantityToDispatch) {
+            stockCheckResults.push({
+              productName: item.productName || item.product_name,
+              error: `Insufficient stock for ${item.productName || item.product_name}. Available: ${currentStock}, Requested: ${quantityToDispatch}`
+            });
+          }
+        }
+      }
+
+      // If there are stock issues, show error and don't proceed
+      if (stockCheckResults.length > 0) {
+        const errorMessages = stockCheckResults.map(result => result.error).join('\n');
+        toast({
+          title: "Stock Insufficient",
+          description: errorMessages,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // All stock checks passed, proceed with stock deduction
+      const stockUpdatePromises = itemsToProcess.map(async (item) => {
+        const product = products.find(p => p.id === item.productId);
+        if (product && updateProductStock) {
+          const quantityToDeduct = item.quantityToDispatch || 0;
+          const newStock = (product.stock || 0) - quantityToDeduct;
+          return updateProductStock(item.productId, Math.max(0, newStock)); // Ensure stock doesn't go negative
+        }
+      });
+
+      // Execute all stock updates
+      await Promise.all(stockUpdatePromises.filter(Boolean));
+
+      // Update order status based on dispatch type
+      if (dispatchType === 'full') {
+        updateOrderStatus(selectedOrder.id, 'Full Dispatch', dispatchData);
+      } else if (dispatchType === 'partial') {
+        updateOrderStatus(selectedOrder.id, 'Partial Dispatch', dispatchData);
+      }
+
+      // Close dialog and reset state
+      setIsDispatchDialogOpen(false);
+      setSelectedOrder(null);
+
+      // Show success message
+      const dispatchedItemsCount = itemsToProcess.length;
+      const totalQuantityDispatched = itemsToProcess.reduce((sum, item) => sum + (item.quantityToDispatch || 0), 0);
+      
+      toast({
+        title: `${dispatchType === 'full' ? 'Full' : 'Partial'} Dispatch Successful`,
+        description: `Successfully dispatched ${totalQuantityDispatched} items across ${dispatchedItemsCount} product(s). Stock has been updated accordingly.`,
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error('Error processing dispatch:', error);
+      toast({
+        title: "Dispatch Error",
+        description: "Failed to process dispatch and update stock. Please try again.",
+        variant: "destructive",
+      });
     }
-    setIsDispatchDialogOpen(false);
-    setSelectedOrder(null);
   };
 
   // Search and Filter Functions
@@ -119,7 +262,6 @@ const AnalyticsBoardPage = () => {
   };
 
   // Helper function to get transport names from delivered_by data
-  // Helper function to get transport names from delivered_by data
   const getTransportNames = (deliveredBy) => {
     if (!deliveredBy || !Array.isArray(deliveredBy)) return [];
     
@@ -137,6 +279,23 @@ const AnalyticsBoardPage = () => {
       })
       .filter(name => name && name.trim() !== '')
       .filter((name, index, arr) => arr.indexOf(name) === index); // Remove duplicates
+  };
+
+  // Helper function to get current stock for a product
+  const getProductStock = (productId) => {
+    const product = products?.find(p => p.id === productId);
+    return product ? product.stock || 0 : 0;
+  };
+
+  // Helper function to check if an order can be dispatched (has sufficient stock)
+  const canDispatchOrder = (order, isFullDispatch = true) => {
+    if (!order.items || order.items.length === 0) return false;
+    
+    return order.items.every(item => {
+      const currentStock = getProductStock(item.productId);
+      const requiredQuantity = isFullDispatch ? (item.quantity || 0) : 0; // For partial, we'll check in the form
+      return currentStock >= requiredQuantity;
+    });
   };
 
   const renderOrderCard = (order, actions) => {
@@ -248,23 +407,43 @@ const AnalyticsBoardPage = () => {
               
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-2">
-                  {order.items.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded-md">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{item.productName || item.product_name || 'Unknown Product'}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Quantity: {item.quantity || 0} {item.unit || 'units'}
-                        </p>
-                      </div>
-                      {order.status === 'Partial Dispatch' && item.dispatchedQuantity > 0 && (
-                        <div className="text-right">
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                            Dispatched: {item.dispatchedQuantity}
-                          </span>
+                  {order.items.map((item, index) => {
+                    const currentStock = getProductStock(item.productId);
+                    // Only show stock warnings for confirmed orders (ready for dispatch)
+                    const hasLowStock = order.status === 'Confirmed' && currentStock < (item.quantity || 0);
+                    
+                    return (
+                      <div key={index} className={`flex justify-between items-center p-2 rounded-md ${
+                        hasLowStock ? 'bg-red-50 border border-red-200' : 'bg-muted/50'
+                      }`}>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{item.productName || item.product_name || 'Unknown Product'}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Quantity: {item.quantity || 0} {item.unit || 'units'}</span>
+                            {order.status === 'Confirmed' && (
+                              <span className={`px-2 py-1 rounded ${
+                                hasLowStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              }`}>
+                                Stock: {currentStock}
+                              </span>
+                            )}
+                          </div>
+                          {hasLowStock && (
+                            <p className="text-xs text-red-600 mt-1">
+                              ⚠️ Insufficient stock for full dispatch
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {order.status === 'Partial Dispatch' && item.dispatchedQuantity > 0 && (
+                          <div className="text-right">
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                              Dispatched: {item.dispatchedQuantity}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground italic">No items listed</p>
@@ -291,8 +470,12 @@ const AnalyticsBoardPage = () => {
       data: getOrdersByStatus('Unconfirmed'),
       actions: (order) => (
         <>
-          <Button size="sm" onClick={() => handleConfirmOrder(order.id)}>
-            <CheckCircle className="mr-2 h-4 w-4" /> Confirm Order
+          <Button 
+            size="sm" 
+            onClick={() => handleConfirmOrder(order.id)}
+          >
+            <CheckCircle className="mr-2 h-4 w-4" /> 
+            Confirm Order
           </Button>
           <Button size="sm" variant="outline" onClick={() => handleOpenEditOrderDialog(order)}>
             <Edit className="mr-2 h-4 w-4" /> Edit Details
@@ -305,16 +488,35 @@ const AnalyticsBoardPage = () => {
       label: 'Confirmed Orders', 
       icon: CheckCircle, 
       data: getOrdersByStatus('Confirmed'),
-      actions: (order) => (
-        <>
-          <Button size="sm" onClick={() => handleOpenDispatchDialog(order, 'full')}>
-            <PackageCheck className="mr-2 h-4 w-4" /> Full Dispatch
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleOpenDispatchDialog(order, 'partial')}>
-            <PackageX className="mr-2 h-4 w-4" /> Partial Dispatch
-          </Button>
-        </>
-      )
+      actions: (order) => {
+        const canFullDispatch = canDispatchOrder(order, true);
+        const hasAnyStock = order.items?.some(item => getProductStock(item.productId) > 0);
+        
+        return (
+          <>
+            <Button 
+              size="sm" 
+              onClick={() => handleOpenDispatchDialog(order, 'full')}
+              disabled={!canFullDispatch}
+              className={!canFullDispatch ? 'opacity-50 cursor-not-allowed' : ''}
+              title={!canFullDispatch ? 'Insufficient stock for full dispatch' : ''}
+            >
+              <PackageCheck className="mr-2 h-4 w-4" /> 
+              {canFullDispatch ? 'Full Dispatch' : 'Insufficient Stock'}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => handleOpenDispatchDialog(order, 'partial')}
+              disabled={!hasAnyStock}
+              title={!hasAnyStock ? 'No stock available for any items' : ''}
+            >
+              <PackageX className="mr-2 h-4 w-4" /> 
+              Partial Dispatch
+            </Button>
+          </>
+        );
+      }
     },
     { value: 'full_dispatch', label: 'Full Dispatch', icon: Truck, data: getOrdersByStatus('Full Dispatch') },
     { 

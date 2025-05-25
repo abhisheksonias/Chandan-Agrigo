@@ -71,29 +71,184 @@ const useProducts = (supabase, toast, session) => {
     return true;
   };
 
-  const updateProductStock = async (productId, newStock, type = 'manual update') => {
-    if (!session) return;
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
+  const updateProductStock = async (productId, newStock, type = 'manual update', orderId = null, showToast = true) => {
+    if (!session) return false;
+    
+    try {
+      const product = products.find(p => p.id === productId);
+      if (!product) {
+        if (showToast) {
+          toast({ title: 'Error', description: 'Product not found.', variant: 'destructive' });
+        }
+        return false;
+      }
 
-    const updatedStockHistory = [...(product.stock_history || []), { date: new Date().toISOString(), quantity: newStock, type }];
-    const { data, error } = await supabase
-      .from('products')
-      .update({ stock: newStock, stock_history: updatedStockHistory })
-      .eq('id', productId)
-      .select();
+      // Ensure newStock is a number and not negative
+      const stockValue = Math.max(0, parseInt(newStock, 10) || 0);
+      
+      // Create stock history entry with additional context
+      const historyEntry = {
+        date: new Date().toISOString(),
+        quantity: stockValue,
+        type: type,
+        previous_stock: product.stock || 0,
+        change: stockValue - (product.stock || 0)
+      };
 
-    if (error) {
-      toast({ title: 'Error Updating Stock', description: error.message, variant: 'destructive' });
-      return;
+      // Add order reference if provided
+      if (orderId) {
+        historyEntry.order_id = orderId;
+      }
+
+      const updatedStockHistory = [...(product.stock_history || []), historyEntry];
+      
+      const { data, error } = await supabase
+        .from('products')
+        .update({ 
+          stock: stockValue, 
+          stock_history: updatedStockHistory,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId)
+        .select();
+
+      if (error) {
+        console.error('Stock update error:', error);
+        if (showToast) {
+          toast({ title: 'Error Updating Stock', description: error.message, variant: 'destructive' });
+        }
+        return false;
+      }
+
+      if (data && data[0]) {
+        // Update local state immediately
+        setProducts(prevProducts => prevProducts.map(p => (p.id === productId ? data[0] : p)));
+        
+        if (showToast) {
+          const changeText = historyEntry.change > 0 ? `increased by ${historyEntry.change}` : 
+                            historyEntry.change < 0 ? `decreased by ${Math.abs(historyEntry.change)}` : 'updated';
+          toast({ 
+            title: 'Stock Updated', 
+            description: `Stock for ${data[0].name} ${changeText}. New stock: ${stockValue}.` 
+          });
+        }
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('Stock update error:', error);
+      if (showToast) {
+        toast({ title: 'Error', description: 'Failed to update stock. Please try again.', variant: 'destructive' });
+      }
+      return false;
     }
-    if (data) {
-      setProducts(prevProducts => prevProducts.map(p => (p.id === productId ? data[0] : p)));
-      toast({ title: 'Stock Updated', description: `Stock for ${data[0].name} updated to ${newStock}.` });
+    
+    return false;
+  };
+
+  // Batch stock update function for multiple products (useful for order confirmation)
+  const updateMultipleProductsStock = async (stockUpdates, type = 'order confirmation', orderId = null) => {
+    if (!session || !Array.isArray(stockUpdates) || stockUpdates.length === 0) return false;
+
+    try {
+      const updatePromises = stockUpdates.map(async ({ productId, newStock }) => {
+        return updateProductStock(productId, newStock, type, orderId, false); // Don't show individual toasts
+      });
+
+      const results = await Promise.all(updatePromises);
+      const successCount = results.filter(result => result === true).length;
+      const failureCount = results.length - successCount;
+
+      if (successCount > 0) {
+        toast({ 
+          title: 'Stock Updated', 
+          description: `Successfully updated stock for ${successCount} product${successCount !== 1 ? 's' : ''}${failureCount > 0 ? `. ${failureCount} failed.` : '.'}`,
+          variant: failureCount > 0 ? 'warning' : 'default'
+        });
+      }
+
+      if (failureCount > 0 && successCount === 0) {
+        toast({ 
+          title: 'Stock Update Failed', 
+          description: `Failed to update stock for ${failureCount} product${failureCount !== 1 ? 's' : ''}.`,
+          variant: 'destructive'
+        });
+      }
+
+      return failureCount === 0; // Return true only if all updates succeeded
+    } catch (error) {
+      console.error('Batch stock update error:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to update product stocks. Please try again.',
+        variant: 'destructive'
+      });
+      return false;
     }
   };
 
-  return { products, setProducts, addProduct, updateProduct, deleteProduct, updateProductStock, generateSku };
+  // Helper function to check stock availability for multiple products
+  const checkStockAvailability = (itemsToCheck) => {
+    if (!Array.isArray(itemsToCheck)) return { available: false, errors: ['Invalid items provided'] };
+    
+    const errors = [];
+    
+    for (const item of itemsToCheck) {
+      const product = products.find(p => p.id === item.productId);
+      
+      if (!product) {
+        errors.push(`Product not found: ${item.productName || item.productId}`);
+        continue;
+      }
+
+      const currentStock = product.stock || 0;
+      const requestedQuantity = parseInt(item.quantity, 10) || 0;
+
+      if (currentStock < requestedQuantity) {
+        errors.push(`Insufficient stock for ${product.name}. Available: ${currentStock}, Requested: ${requestedQuantity}`);
+      }
+    }
+
+    return {
+      available: errors.length === 0,
+      errors: errors
+    };
+  };
+
+  // Helper function to calculate new stock values for order items
+  const calculateStockUpdatesForOrder = (orderItems) => {
+    if (!Array.isArray(orderItems)) return [];
+    
+    return orderItems.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (!product) return null;
+      
+      const currentStock = product.stock || 0;
+      const quantityToDeduct = parseInt(item.quantity, 10) || 0;
+      const newStock = Math.max(0, currentStock - quantityToDeduct);
+      
+      return {
+        productId: item.productId,
+        productName: product.name,
+        currentStock,
+        quantityToDeduct,
+        newStock
+      };
+    }).filter(update => update !== null);
+  };
+
+  return { 
+    products, 
+    setProducts, 
+    addProduct, 
+    updateProduct, 
+    deleteProduct, 
+    updateProductStock, 
+    updateMultipleProductsStock,
+    checkStockAvailability,
+    calculateStockUpdatesForOrder,
+    generateSku 
+  };
 };
 
 export default useProducts;
