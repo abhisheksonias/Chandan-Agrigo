@@ -50,6 +50,7 @@ const useOrders = (supabase, toast, session, products) => {
       status: 'Unconfirmed',
       items: orderData.items,
       dispatched_items: [],
+      delivered_by: [],
       added_by: orderData.added_by,
       user_id: session?.user?.id || null // Made optional
     };
@@ -103,10 +104,18 @@ const useOrders = (supabase, toast, session, products) => {
         dispatchedAt: new Date().toISOString()
       }));
 
+      // Simplified delivered_by - just store transport names
+      let deliveredByData = orderToUpdate.delivered_by || [];
+      
+      if (details.transportName && !deliveredByData.includes(details.transportName)) {
+        deliveredByData = [...deliveredByData, details.transportName];
+      }
+
       updatePayload = {
         ...updatePayload,
         items: updatedItems,
-        dispatched_items: [...(orderToUpdate.dispatched_items || []), ...newDispatchedItems]
+        dispatched_items: [...(orderToUpdate.dispatched_items || []), ...newDispatchedItems],
+        delivered_by: deliveredByData
       };
       toastMessage = `Order ${orderId} partially dispatched.`;
     } else if (newStatus === 'Full Dispatch') {
@@ -114,7 +123,19 @@ const useOrders = (supabase, toast, session, products) => {
         ...item, 
         dispatchedQuantity: item.quantity 
       }));
-      updatePayload = { ...updatePayload, items: fullyDispatchedItems };
+
+      // Simplified delivered_by - just store transport names
+      let deliveredByData = orderToUpdate.delivered_by || [];
+      
+      if (details && details.transportName && !deliveredByData.includes(details.transportName)) {
+        deliveredByData = [...deliveredByData, details.transportName];
+      }
+
+      updatePayload = { 
+        ...updatePayload, 
+        items: fullyDispatchedItems,
+        delivered_by: deliveredByData
+      };
       toastMessage = `Order ${orderId} fully dispatched.`;
     } else if (newStatus === 'Delivered') {
       toastMessage = `Order ${orderId} marked as delivered.`;
