@@ -76,9 +76,9 @@ const AnalyticsBoardPage = () => {
 
   const handleDispatch = (dispatchData) => {
     if (dispatchType === 'full') {
-      updateOrderStatus(selectedOrder.id, 'Full Dispatch');
+      updateOrderStatus(selectedOrder.id, 'Full Dispatch', dispatchData);
     } else if (dispatchType === 'partial') {
-      updateOrderStatus(selectedOrder.id, 'Partial Dispatch', { dispatchedItems: dispatchData.dispatchedItems });
+      updateOrderStatus(selectedOrder.id, 'Partial Dispatch', dispatchData);
     }
     setIsDispatchDialogOpen(false);
     setSelectedOrder(null);
@@ -118,121 +118,167 @@ const AnalyticsBoardPage = () => {
     });
   };
 
-  const renderOrderCard = (order, actions) => (
-    <motion.div
-      key={order.id}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      layout
-    >
-      <Card className="mb-4 hover:shadow-md transition-shadow">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <CardTitle className="text-lg">Order ID: {order.id?.substring(0, 8)}...</CardTitle>
-              <CardDescription className="mt-1">
-                <div className="flex items-center gap-1 mb-1">
-                  <User className="h-3 w-3" />
-                  <span>{order.customer_name || 'N/A'}</span>
+  // Helper function to get transport names from delivered_by data
+  // Helper function to get transport names from delivered_by data
+  const getTransportNames = (deliveredBy) => {
+    if (!deliveredBy || !Array.isArray(deliveredBy)) return [];
+    
+    return deliveredBy
+      .map(delivery => {
+        // Handle new format: direct string values
+        if (typeof delivery === 'string') {
+          return delivery;
+        }
+        // Handle old format: object with transportName property
+        if (typeof delivery === 'object' && delivery.transportName) {
+          return delivery.transportName;
+        }
+        return null;
+      })
+      .filter(name => name && name.trim() !== '')
+      .filter((name, index, arr) => arr.indexOf(name) === index); // Remove duplicates
+  };
+
+  const renderOrderCard = (order, actions) => {
+    const transportNames = getTransportNames(order.delivered_by);
+    const isDispatched = order.status === 'Full Dispatch' || order.status === 'Partial Dispatch';
+    
+    return (
+      <motion.div
+        key={order.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        layout
+      >
+        <Card className="mb-4 hover:shadow-md transition-shadow">
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <CardTitle className="text-lg">Order ID: {order.id?.substring(0, 8)}...</CardTitle>
+                <CardDescription className="mt-1">
+                  <div className="flex items-center gap-1 mb-1">
+                    <User className="h-3 w-3" />
+                    <span>{order.customer_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mb-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{order.city || 'N/A'}</span>
+                  </div>
+                  {order.phone_number && (
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      <span>{order.phone_number}</span>
+                    </div>
+                  )}
+                </CardDescription>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
+                order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' :
+                order.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' :
+                order.status === 'Partial Dispatch' ? 'bg-orange-100 text-orange-700' :
+                order.status === 'Full Dispatch' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+              }`}>
+                {order.status || 'Unknown'}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Delivery Location:</p>
+                    <p className="text-sm text-muted-foreground">{order.delivery_location || 'N/A'}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 mb-1">
-                  <MapPin className="h-3 w-3" />
-                  <span>{order.city || 'N/A'}</span>
+                
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Order Date:</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
+                  </div>
                 </div>
-                {order.phone_number && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    <span>{order.phone_number}</span>
+              </div>
+              
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm font-medium">Added By:</p>
+                  <p className="text-sm text-muted-foreground">{order.added_by || 'N/A'}</p>
+                </div>
+                
+                {/* Show transport information for dispatched orders */}
+                {isDispatched && transportNames.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Truck className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Transport Agency:</p>
+                      <div className="text-sm text-muted-foreground">
+                        {transportNames.map((name, index) => (
+                          <span 
+                            key={index} 
+                            className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
-              </CardDescription>
-            </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
-              order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' :
-              order.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' :
-              order.status === 'Partial Dispatch' ? 'bg-orange-100 text-orange-700' :
-              order.status === 'Full Dispatch' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-            }`}>
-              {order.status || 'Unknown'}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium">Delivery Location:</p>
-                  <p className="text-sm text-muted-foreground">{order.delivery_location || 'N/A'}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Order Date:</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
-                </div>
+                
+                {order.updated_at && order.updated_at !== order.created_at && (
+                  <div>
+                    <p className="text-sm font-medium">Last Updated:</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(order.updated_at)}</p>
+                  </div>
+                )}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <div>
-                <p className="text-sm font-medium">Added By:</p>
-                <p className="text-sm text-muted-foreground">{order.added_by || 'N/A'}</p>
-              </div>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <PackageCheck className="h-4 w-4" />
+                Order Items:
+              </h4>
               
-              {order.updated_at && order.updated_at !== order.created_at && (
-                <div>
-                  <p className="text-sm font-medium">Last Updated:</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(order.updated_at)}</p>
+              {order.items && order.items.length > 0 ? (
+                <div className="space-y-2">
+                  {order.items.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded-md">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.productName || item.product_name || 'Unknown Product'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Quantity: {item.quantity || 0} {item.unit || 'units'}
+                        </p>
+                      </div>
+                      {order.status === 'Partial Dispatch' && item.dispatchedQuantity > 0 && (
+                        <div className="text-right">
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                            Dispatched: {item.dispatchedQuantity}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No items listed</p>
               )}
             </div>
-          </div>
 
-          <div className="border-t pt-4">
-            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-              <PackageCheck className="h-4 w-4" />
-              Order Items:
-            </h4>
-            
-            {order.items && order.items.length > 0 ? (
-              <div className="space-y-2">
-                {order.items.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded-md">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{item.productName || item.product_name || 'Unknown Product'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Quantity: {item.quantity || 0} {item.unit || 'units'}
-                      </p>
-                    </div>
-                    {order.status === 'Partial Dispatch' && item.dispatchedQuantity > 0 && (
-                      <div className="text-right">
-                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                          Dispatched: {item.dispatchedQuantity}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {actions && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex flex-wrap gap-2">{actions(order)}</div>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">No items listed</p>
             )}
-          </div>
-
-          {actions && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex flex-wrap gap-2">{actions(order)}</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   const tabsConfig = [
     { value: 'total_orders', label: 'Total Orders', icon: BarChart3, data: filteredOrders },
