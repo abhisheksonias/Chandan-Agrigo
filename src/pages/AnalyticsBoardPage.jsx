@@ -156,21 +156,23 @@ const AnalyticsBoardPage = () => {
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <CardTitle className="text-lg">Order ID: {order.id?.substring(0, 8)}...</CardTitle>
-                <CardDescription className="mt-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    <User className="h-3 w-3" />
-                    <span>{order.customer_name || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mb-1">
-                    <MapPin className="h-3 w-3" />
-                    <span>{order.city || 'N/A'}</span>
-                  </div>
-                  {order.phone_number && (
-                    <div className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      <span>{order.phone_number}</span>
-                    </div>
-                  )}
+                <CardDescription>
+                  <span className="block">
+                    <span className="flex items-center gap-1 mb-1">
+                      <User className="h-3 w-3" />
+                      <span>{order.customer_name || 'N/A'}</span>
+                    </span>
+                    <span className="flex items-center gap-1 mb-1">
+                      <MapPin className="h-3 w-3" />
+                      <span>{order.city || 'N/A'}</span>
+                    </span>
+                    {order.phone_number && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        <span>{order.phone_number}</span>
+                      </span>
+                    )}
+                  </span>
                 </CardDescription>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
