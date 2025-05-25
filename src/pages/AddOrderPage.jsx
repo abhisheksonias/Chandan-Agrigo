@@ -57,7 +57,14 @@ const AddOrderPage = () => {
     const newItems = [...orderItems];
     
     if (field === 'quantity') {
-      newItems[index][field] = parseInt(value, 10) || 1;
+      // Allow empty value to be entered (so user can delete and start typing new value)
+      if (value === '') {
+        newItems[index][field] = '';
+      } else {
+        // Convert to number when there's a value, default to 1 only if the input is invalid
+        const numValue = parseInt(value, 10);
+        newItems[index][field] = isNaN(numValue) ? 1 : numValue;
+      }
     } else if (field === 'productId') {
       const product = products.find(p => p.id === value);
       newItems[index] = {
@@ -131,7 +138,7 @@ const AddOrderPage = () => {
       return false;
     }
 
-    if (orderItems.some(item => !item.productId || item.quantity <= 0)) {
+    if (orderItems.some(item => !item.productId || item.quantity === '' || item.quantity <= 0)) {
       toast({ 
         title: 'Error', 
         description: 'Please ensure all order items have valid products and quantities.', 
