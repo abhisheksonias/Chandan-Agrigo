@@ -28,9 +28,10 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import CustomerForm from "@/components/forms/CustomerForm";
+import { userService } from "@/lib/supabaseService";
 
 const AddOrderPage = () => {
-  const { customers, products, addOrder, addCustomer } = useAppContext();
+  const { customers, products, addOrder, addCustomer, session } = useAppContext();
   const { toast } = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -73,6 +74,37 @@ const AddOrderPage = () => {
       });
     }
   }, [selectedCustomerId, customers]);
+
+  useEffect(() => {
+    // Enhanced logic: always show full name if possible
+    async function resolveAddedBy() {
+      if (session?.user?.user_metadata?.name && session.user.user_metadata.name.trim() !== "") {
+        setAddedBy(session.user.user_metadata.name);
+      } else if (session?.user?.id) {
+        // Try to fetch from users table
+        try {
+          const { success, data } = await userService.getUserById(session.user.id);
+          if (success && data?.name && data.name.trim() !== "") {
+            setAddedBy(data.name);
+            return;
+          }
+        } catch (e) {
+          // Ignore error, fallback to email
+        }
+        // Fallback to email if name not found
+        if (session.user.email) {
+          setAddedBy(session.user.email);
+        } else {
+          setAddedBy("");
+        }
+      } else if (session?.user?.email) {
+        setAddedBy(session.user.email);
+      } else {
+        setAddedBy("");
+      }
+    }
+    resolveAddedBy();
+  }, [session]);
 
   const handleCustomerDetailChange = (e) => {
     const { name, value } = e.target;
@@ -483,8 +515,8 @@ const AddOrderPage = () => {
                 <Input
                   id="addedBy"
                   value={addedBy}
-                  onChange={(e) => setAddedBy(e.target.value)}
-                  placeholder="Enter your name (optional)"
+                  readOnly
+                  // placeholder="Enter your name (optional)"
                 />
               </div>
             </section>
