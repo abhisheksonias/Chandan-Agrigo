@@ -98,11 +98,10 @@ const Layout = ({ children, onLogout }) => {
           !sidebarOpen && "lg:flex"
         )}>
           <div className="flex flex-col h-full">
-            <div className="p-4 border-b flex items-center justify-between">
-              <Link to="/" className="flex items-center space-x-2">
+            <div className="p-4 border-b flex items-center justify-between">              <Link to="/" className="flex items-center space-x-2">
                 <div className="w-10 h-10 rounded-md  flex items-center justify-center overflow-hidden">
                   <img 
-                    src="./Public/CAPL_Logo.png" 
+                    src="/CAPL_Logo.png" 
                     alt="AgriPro Logo" 
                     className="w-full h-full object-contain"
                   />
