@@ -5,12 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { useAppContext } from '@/context/AppContext';
+import { generateDispatchPDF } from '@/hooks/pdfGenerator'; // Import the PDF generator
 
 const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
-  const { products: allProducts, transports } = useAppContext();
+  const { products: allProducts, transports, customers } = useAppContext();
   const { toast } = useToast();
   const [dispatchedItems, setDispatchedItems] = useState([]);
   const [selectedTransport, setSelectedTransport] = useState('');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (order && order.items) {
@@ -53,7 +55,7 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     return product ? (product.stock || 0) : 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate transport selection
@@ -95,7 +97,7 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
         return { 
           productId: item.productId,
           productName: item.productName,
-          quantity: item.currentDispatchQuantity, // Changed from quantityToDispatch to quantity to match your DB format
+          quantity: item.currentDispatchQuantity,
           dispatchedAt: new Date().toISOString()
         };
       });
@@ -115,12 +117,56 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     
     // Structure the data to match your database format and expected structure
     const dispatchData = {
-      dispatchedItems: itemsToSubmit, // This will be added to the dispatched_items array
+      dispatchedItems: itemsToSubmit,
       transportId: selectedTransport,
       transportName: selectedTransportData?.name || '',
       dispatchType: dispatchType,
       dispatchDate: new Date().toISOString()
     };
+
+    try {
+      // Set loading state for PDF generation
+      setIsGeneratingPDF(true);
+
+      // Generate PDF before submitting the dispatch
+      const customerData = customers?.find(c => c.id === order.customer_id) || {
+        name: order.customer_name,
+        city: order.city,
+        phone: order.phone_number
+      };
+
+      const pdfResult = await generateDispatchPDF(
+        order,
+        dispatchData,
+        customerData,
+        selectedTransportData
+      );
+
+      if (pdfResult.success) {
+        toast({
+          title: 'PDF Generated Successfully',
+          description: `${pdfResult.message}`,
+          variant: 'default'
+        });
+      } else {
+        // Still proceed with dispatch even if PDF fails, but show warning
+        toast({
+          title: 'PDF Generation Failed',
+          description: `${pdfResult.message} Dispatch will continue.`,
+          variant: 'destructive'
+        });
+      }
+
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      toast({
+        title: 'PDF Generation Error',
+        description: 'Failed to generate PDF, but dispatch will continue.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
     
     // Pass the dispatch data to the parent component
     onSubmit(dispatchData);
@@ -278,19 +324,37 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
               {dispatchType === 'full' ? 'Full Dispatch' : 'Partial Dispatch'}
             </span>
           </div>
+
+          {/* PDF Generation Notice */}
+          {isGeneratingPDF && (
+            <div className="mt-3 p-2 bg-yellow-50 rounded flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+              <p className="text-sm text-yellow-800">Generating purchase order PDF...</p>
+            </div>
+          )}
         </div>
       </div>
       
       <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-background py-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isGeneratingPDF}>
           Cancel
         </Button>
         <Button 
           type="submit"
-          disabled={dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length === 0}
+          disabled={
+            dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length === 0 || 
+            isGeneratingPDF
+          }
           className={dispatchType === 'partial' ? 'bg-orange-600 hover:bg-orange-700' : ''}
         >
-          {dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Process Partial Dispatch'}
+          {isGeneratingPDF ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Generating PDF...
+            </>
+          ) : (
+            dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Process Partial Dispatch'
+          )}
         </Button>
       </div>
     </form>
