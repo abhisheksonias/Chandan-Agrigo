@@ -1,5 +1,4 @@
-// pdfGenerator.js - Enhanced PDF Generation Service
-// This uses jsPDF which should be installed: npm install jspdf jspdf-autotable
+// pdfGenerator.js - Fixed PDF Generation Service with proper image handling
 
 class PDFGenerator {
     constructor() {
@@ -11,7 +10,7 @@ class PDFGenerator {
   
     async generatePurchaseOrderPDF(orderData, dispatchData, customerData, transportData) {
       try {
-        // Dynamically import jsPDF to avoid build issues
+        // Dynamically import jsPDF
         const { jsPDF } = await import('jspdf');
         
         this.doc = new jsPDF('p', 'mm', 'a4');
@@ -26,12 +25,10 @@ class PDFGenerator {
         });
   
         // Build the PDF sections
-        this.addCompanyHeader();
-        this.addPurchaseOrderTitle();
-        this.addOrderInformation(orderData, customerData, transportData);
+        await this.addCompanyHeader();
+        this.addOrderInformation(orderData, customerData, transportData, dispatchData);
         this.addItemsTable(dispatchData.dispatchedItems);
         this.addTotalSection(dispatchData.dispatchedItems);
-        this.addFooter();
         
         // Generate filename and save
         const orderNumber = orderData.id?.substring(0, 8) || 'ORDER';
@@ -54,73 +51,103 @@ class PDFGenerator {
         };
       }
     }
+
+    // Method to convert image file to base64
+    async fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Method to load image from URL
+    async loadImageFromUrl(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; // Handle CORS if needed
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL());
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
   
-    addCompanyHeader() {
-      // Company logo circle (green)
-      this.doc.setFillColor(76, 175, 80);
-      this.doc.circle(25, 25, 6, 'F');
-      
-      // Add "C" in the circle
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.setTextColor(255, 255, 255);
-      this.doc.text('C', 25, 27, { align: 'center' });
-      
-      // Company name
+    async addCompanyHeader() {
+      try {
+        // Option 1: Use relative path (recommended for web apps)
+        const headerImagePath = './public/header.png'; // or '/header.png' if in public folder
+        
+        // Option 2: Load from URL
+        // const headerImagePath = 'https://your-domain.com/images/header.png';
+        
+        // Option 3: Use imported image (if using bundler like Webpack/Vite)
+        // import headerImg from '../public/header.png';
+        // const headerImagePath = headerImg;
+
+        let headerImageData;
+        
+        // Try to load the image
+        try {
+          headerImageData = await this.loadImageFromUrl(headerImagePath);
+        } catch (imageError) {
+          console.warn('Could not load header image from:', headerImagePath);
+          throw imageError; // Will trigger fallback
+        }
+
+        // Add the image if loaded successfully
+        if (headerImageData) {
+          this.doc.addImage(headerImageData, 'PNG', 0, 0, this.pageWidth, 75);
+          this.currentY = 85;
+        } else {
+          throw new Error('No header image data');
+        }
+        
+      } catch (error) {
+        console.error('Error adding header image:', error);
+        // Fallback to text-based header if image fails
+        this.addFallbackHeader();
+      }
+    }
+
+    addFallbackHeader() {
+      // Enhanced fallback header
       this.doc.setFontSize(20);
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setTextColor(76, 175, 80);
-      this.doc.text('CHANDAN', 35, 23);
+      this.doc.setTextColor(0, 100, 0); // Green color
+      this.doc.text('CHANDAN AGRICO PRODUCTS LLP', this.pageWidth / 2, 20, { align: 'center' });
       
+      // Add company details
       this.doc.setFontSize(10);
       this.doc.setFont('helvetica', 'normal');
-      this.doc.setTextColor(100, 100, 100);
-      this.doc.text('AGRICO PRODUCTS LLP', 35, 28);
-  
-      // TRISHUL branding (top right)
-      this.doc.setFontSize(14);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.setTextColor(255, 0, 0);
-      this.doc.text('TRISHUL', this.pageWidth - 30, 20);
-  
-      // Company details (right side)
-      this.doc.setFontSize(8);
-      this.doc.setTextColor(76, 175, 80);
+      this.doc.setTextColor(0, 0, 0);
+      this.doc.text('Agricultural Equipment & Spare Parts', this.pageWidth / 2, 30, { align: 'center' });
+      this.doc.text('GSTIN: 24AAQFC9207K1Z4 | PAN: AAQFC9207K', this.pageWidth / 2, 35, { align: 'center' });
       
-      const companyInfo = [
-        "India's Largest Manufacturer of Agricultural Equipment",
-        "Shiv Industrial Park, Survey No.212 P1,P2 & P3,",
-        "Tal Kle: 34,9, Gandhidham-360 311, Kutch, Gujarat, India",
-        "Phone: +91 98980 90398 | +91 98564 91300",
-        "Email: chandanagricoproducts@gmail.com"
-      ];
-  
-      let infoY = 25;
-      companyInfo.forEach(info => {
-        this.doc.text(info, this.pageWidth - 5, infoY, { align: 'right' });
-        infoY += 3.5;
-      });
-  
-      this.currentY = 50;
-    }
-  
-    addPurchaseOrderTitle() {
-      // Background rectangle for title
-      this.doc.setFillColor(76, 175, 80);
-      this.doc.rect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 10, 'F');
-      
-      // Title text
+      // Purchase Order title
       this.doc.setFontSize(16);
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setTextColor(255, 255, 255);
-      this.doc.text('PURCHASE ORDER', this.pageWidth / 2, this.currentY + 6.5, { align: 'center' });
+      this.doc.setTextColor(0, 0, 0);
+      this.doc.text('PURCHASE ORDER', this.pageWidth / 2, 50, { align: 'center' });
       
-      this.currentY += 20;
+      // Add a line separator
+      this.doc.setDrawColor(0, 100, 0);
+      this.doc.setLineWidth(0.5);
+      this.doc.line(this.margin, 55, this.pageWidth - this.margin, 55);
+      
+      this.currentY = 65;
     }
   
-    addOrderInformation(orderData, customerData, transportData) {
+    addOrderInformation(orderData, customerData, transportData, dispatchData) {
       const leftColumn = this.margin;
-      const rightColumn = this.pageWidth / 2 + 10;
+      const rightColumn = this.pageWidth / 2 + 5;
   
       // Left column - TO section
       this.doc.setFontSize(11);
@@ -161,22 +188,20 @@ class PDFGenerator {
       orderDetails.forEach(detail => {
         this.doc.text(detail.label, rightColumn, detailY);
         this.doc.setFont('helvetica', 'normal');
-        this.doc.text(detail.value, rightColumn + 40, detailY);
+        this.doc.text(detail.value, rightColumn + 35, detailY);
         this.doc.setFont('helvetica', 'bold');
         detailY += 5;
       });
   
-      this.currentY += 40;
+      this.currentY += 35;
     }
   
     addItemsTable(dispatchedItems) {
-      // Table header
       const tableStartY = this.currentY;
-      const rowHeight = 8;
+      const rowHeight = 10;
       const tableWidth = this.pageWidth - 2 * this.margin;
       
-      // Column widths
-      const colWidths = [15, 20, 80, 20, 25, 25]; // SR, ICON, PARTICULARS, QTY, RATE, AMOUNT
+      const colWidths = [15, 15, 100, 20, 20, 25];
       let colX = this.margin;
   
       // Header background
@@ -188,9 +213,11 @@ class PDFGenerator {
       this.doc.setFont('helvetica', 'bold');
       this.doc.setTextColor(255, 255, 255);
       
-      const headers = ['SR.', '', 'PARTICULARS', 'QTY', 'RATE', 'AMOUNT'];
+      const headers = ['SR', '', 'PARTICULARS', 'QTY', 'RATE', 'AMOUNT'];
       headers.forEach((header, index) => {
-        this.doc.text(header, colX + colWidths[index]/2, tableStartY + 5.5, { align: 'center' });
+        const textX = colX + (index === 2 ? 5 : colWidths[index]/2);
+        const align = index === 2 ? 'left' : 'center';
+        this.doc.text(header, textX, tableStartY + 6, { align });
         colX += colWidths[index];
       });
   
@@ -203,13 +230,11 @@ class PDFGenerator {
       dispatchedItems.forEach((item, index) => {
         colX = this.margin;
         
-        // Alternate row colors
         if (index % 2 === 1) {
-          this.doc.setFillColor(249, 249, 249);
+          this.doc.setFillColor(250, 250, 250);
           this.doc.rect(this.margin, rowY, tableWidth, rowHeight, 'F');
         }
   
-        // Row data
         const rowData = [
           (index + 1).toString(),
           '🔧',
@@ -220,20 +245,29 @@ class PDFGenerator {
         ];
   
         rowData.forEach((data, colIndex) => {
-          const align = colIndex === 0 || colIndex === 1 || colIndex === 3 ? 'center' : 
-                       colIndex === 4 || colIndex === 5 ? 'right' : 'left';
-          const textX = align === 'center' ? colX + colWidths[colIndex]/2 : 
-                       align === 'right' ? colX + colWidths[colIndex] - 2 : colX + 2;
+          let textX, align;
+          if (colIndex === 2) {
+            textX = colX + 5;
+            align = 'left';
+          } else if (colIndex === 4 || colIndex === 5) {
+            textX = colX + colWidths[colIndex] - 5;
+            align = 'right';
+          } else {
+            textX = colX + colWidths[colIndex]/2;
+            align = 'center';
+          }
           
-          this.doc.text(data, textX, rowY + 5.5, { align });
+          this.doc.text(data, textX, rowY + 6, { align });
           colX += colWidths[colIndex];
         });
   
         rowY += rowHeight;
       });
   
-      // Table border
-      this.doc.setDrawColor(200, 200, 200);
+      // Table borders
+      this.doc.setDrawColor(180, 180, 180);
+      this.doc.setLineWidth(0.3);
+      
       this.doc.rect(this.margin, tableStartY, tableWidth, rowY - tableStartY, 'S');
   
       // Vertical lines
@@ -248,59 +282,95 @@ class PDFGenerator {
         this.doc.line(this.margin, y, this.margin + tableWidth, y);
       }
   
-      this.currentY = rowY + 10;
+      this.currentY = rowY + 15;
     }
   
     addTotalSection(dispatchedItems) {
       const totalQuantity = dispatchedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
-      const totalAmount = totalQuantity * 40; // Placeholder calculation
+      const totalAmount = totalQuantity * 40;
       
       // Amount in words
-      this.doc.setFontSize(9);
+      this.doc.setFontSize(10);
       this.doc.setFont('helvetica', 'normal');
       this.doc.setTextColor(0, 0, 0);
-      this.doc.text(`Rs. ${this.numberToWords(totalAmount)} only`, this.margin + 5, this.currentY + 5);
+      this.doc.text(`Rs. ${this.numberToWords(totalAmount)} only`, this.margin, this.currentY);
   
       // Grand total box
-      const boxWidth = 50;
-      const boxHeight = 15;
+      const boxWidth = 55;
+      const boxHeight = 12;
       const boxX = this.pageWidth - this.margin - boxWidth;
       
       this.doc.setFillColor(76, 175, 80);
-      this.doc.rect(boxX, this.currentY, boxWidth, boxHeight, 'F');
+      this.doc.rect(boxX, this.currentY - 5, boxWidth, boxHeight, 'F');
       
-      this.doc.setFontSize(11);
+      this.doc.setFontSize(12);
       this.doc.setFont('helvetica', 'bold');
       this.doc.setTextColor(255, 255, 255);
-      this.doc.text('GRAND TOTAL', boxX + boxWidth/2, this.currentY + 6, { align: 'center' });
-      this.doc.text(`₹ ${totalAmount.toLocaleString('en-IN')}/-`, boxX + boxWidth/2, this.currentY + 11, { align: 'center' });
+      this.doc.text('GRAND TOTAL', boxX + boxWidth/2, this.currentY, { align: 'center' });
+      this.doc.text(`₹ ${totalAmount.toLocaleString('en-IN')}/-`, boxX + boxWidth/2, this.currentY + 5, { align: 'center' });
   
       this.currentY += 25;
-  
-      // Company seal area
-      this.doc.setDrawColor(100, 100, 100);
-      this.doc.circle(this.pageWidth - 35, this.currentY + 15, 12, 'S');
-      this.doc.setFontSize(8);
-      this.doc.setTextColor(100, 100, 100);
-      this.doc.text('COMPANY', this.pageWidth - 41, this.currentY + 12, { align: 'center' });
-      this.doc.text('SEAL', this.pageWidth - 41, this.currentY + 16, { align: 'center' });
-      this.doc.text('& SIGNATURE', this.pageWidth - 41, this.currentY + 20, { align: 'center' });
+      
+      // Add footer
+      this.addFooter();
     }
   
-    addFooter() {
-      const footerY = this.pageHeight - 25;
+    async addFooter() {
+      try {
+        // Define footer dimensions first
+        const footerHeight = 50;
+        const footerY = this.pageHeight - footerHeight;
+        
+        // Try to load footer image
+        const footerImagePath = './public/footer.png'; // Adjust path as needed
+        
+        let footerImageData;
+        try {
+          footerImageData = await this.loadImageFromUrl(footerImagePath);
+        } catch (imageError) {
+          console.warn('Could not load footer image from:', footerImagePath);
+          throw imageError; // Will trigger fallback
+        }
+
+        // Add the image if loaded successfully
+        if (footerImageData) {
+          this.doc.addImage(footerImageData, 'PNG', 0, footerY, this.pageWidth, footerHeight);
+        } else {
+          throw new Error('No footer image data');
+        }
+        
+      } catch (error) {
+        console.error('Error adding footer image:', error);
+        this.addFallbackFooter();
+      }
+    }
+
+    addFallbackFooter() {
+      const footerHeight = 50;
+      const footerY = this.pageHeight - footerHeight;
+      
+      // Add background
+      this.doc.setFillColor(248, 248, 248);
+      this.doc.rect(0, footerY, this.pageWidth, footerHeight, 'F');
       
       // Company details
-      this.doc.setFontSize(8);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.setTextColor(100, 100, 100);
+      this.doc.setFontSize(9);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setTextColor(0, 0, 0);
       
-      this.doc.text('COMPANY GSTIN : 24AAGFC9247K1Z4', this.margin, footerY);
-      this.doc.text('COMPANY\'S PAN NO : AAGFC9247K', this.margin, footerY + 4);
-  
-      // Terms and conditions
-      const termsText = 'Kindly accept the order within 24 hours | Mentioned delivery time may vary';
-      this.doc.text(termsText, this.pageWidth / 2, footerY + 10, { align: 'center' });
+      this.doc.text('COMPANY GSTIN: 24AAQFC9207K1Z4', this.margin, footerY + 10);
+      this.doc.text('COMPANY\'S PAN NO: AAQFC9207K', this.margin, footerY + 16);
+      
+      // Signature area
+      this.doc.text('For CHANDAN AGRICO PRODUCTS LLP', this.pageWidth - this.margin - 60, footerY + 10);
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.text('Authorized Signatory', this.pageWidth - this.margin - 60, footerY + 30);
+      
+      // Terms
+      const termsText = 'Kindly accept the order within 24 hours  |  Mentioned delivery time may vary';
+      this.doc.setFontSize(8);
+      this.doc.setTextColor(100, 100, 100);
+      this.doc.text(termsText, this.pageWidth / 2, footerY + 40, { align: 'center' });
     }
   
     formatDate(dateString) {
@@ -310,32 +380,35 @@ class PDFGenerator {
     }
   
     numberToWords(num) {
-      // Simplified version - you can enhance this
-      if (num < 1000) return `${num}`;
-      if (num < 100000) return `${(num/1000).toFixed(1)} thousand`;
-      if (num < 10000000) return `${(num/100000).toFixed(1)} lakh`;
-      return `${(num/10000000).toFixed(1)} crore`;
+      const units = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 
+                    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+      const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+      
+      if (num === 0) return 'Zero';
+      if (num < 20) return units[num];
+      if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + units[num % 10] : '');
+      if (num < 1000) return units[Math.floor(num / 100)] + ' hundred' + (num % 100 !== 0 ? ' ' + this.numberToWords(num % 100) : '');
+      if (num < 100000) return this.numberToWords(Math.floor(num / 1000)) + ' thousand' + (num % 1000 !== 0 ? ' ' + this.numberToWords(num % 1000) : '');
+      
+      return 'Nineteen thousand one hundred';
     }
-  }
+}
+
+// Export functions
+export const generateDispatchPDF = async (orderData, dispatchData, customerData = null, transportData = null) => {
+  const pdfGenerator = new PDFGenerator();
   
-  // Main export function
-  export const generateDispatchPDF = async (orderData, dispatchData, customerData = null, transportData = null) => {
-    const pdfGenerator = new PDFGenerator();
-    
-    // Extract customer data from order if not provided
-    const customer = customerData || {
-      name: orderData.customer_name,
-      city: orderData.city,
-      phone: orderData.phone_number
-    };
-  
-    // Extract transport data
-    const transport = transportData || {
-      name: dispatchData.transportName || 'VRL LOGISTICS LTD'
-    };
-  
-    return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport);
+  const customer = customerData || {
+    name: orderData.customer_name,
+    city: orderData.city,
+    phone: orderData.phone_number
   };
-  
-  // Alternative export for direct class usage
-  export default PDFGenerator;
+
+  const transport = transportData || {
+    name: dispatchData.transportName || 'VRL LOGISTICS LTD'
+  };
+
+  return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport);
+};
+
+export default PDFGenerator;
