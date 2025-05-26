@@ -41,6 +41,7 @@ import { useToast } from "@/components/ui/use-toast";
 import OrderDetailsForm from "@/components/forms/OrderDetailsForm";
 import DispatchForm from "@/components/forms/DispatchForm";
 import * as XLSX from "xlsx";
+import { generateDispatchPDF } from "@/hooks/pdfGenerator";
 
 const AnalyticsBoardPage = () => {
   const {
@@ -460,6 +461,15 @@ const AnalyticsBoardPage = () => {
     const isDispatched =
       order.status === "Full Dispatch" || order.status === "Partial Dispatch";
 
+    // Handler for invoice download
+    const handleDownloadInvoice = async () => {
+      const dispatchData = {
+        dispatchedItems: order.dispatched_items || order.items || [],
+        transportName: transportNames[0] || "VRL LOGISTICS LTD",
+      };
+      await generateDispatchPDF(order, dispatchData);
+    };
+
     return (
       <motion.div
         key={order.id}
@@ -579,6 +589,7 @@ const AnalyticsBoardPage = () => {
                 <PackageCheck className="h-4 w-4" />
                 Order Items:
               </h4>
+              
 
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-2">
@@ -649,6 +660,19 @@ const AnalyticsBoardPage = () => {
             {actions && (
               <div className="mt-4 pt-4 border-t">
                 <div className="flex flex-wrap gap-2">{actions(order)}</div>
+              </div>
+            )}
+            {isDispatched && (
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleDownloadInvoice}
+                  title="Download Invoice PDF"
+                >
+                  <DownloadCloud className="mr-2 h-4 w-4" />
+                  Download Invoice
+                </Button>
               </div>
             )}
           </CardContent>
