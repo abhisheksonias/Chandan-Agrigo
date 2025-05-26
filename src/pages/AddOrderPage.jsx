@@ -42,7 +42,7 @@ const AddOrderPage = () => {
     deliveryLocation: "",
   });
   const [orderItems, setOrderItems] = useState([
-    { productId: "", quantity: 1 },
+    { productId: "", quantity: 1, price: 0 },
   ]);
   const [addedBy, setAddedBy] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,6 +123,15 @@ const AddOrderPage = () => {
         const numValue = parseInt(value, 10);
         newItems[index][field] = isNaN(numValue) ? 1 : numValue;
       }
+    } else if (field === "price") {
+      // Allow empty value to be entered
+      if (value === "") {
+        newItems[index][field] = "";
+      } else {
+        // Convert to number when there's a value, default to 0 if invalid
+        const numValue = parseFloat(value);
+        newItems[index][field] = isNaN(numValue) ? 0 : numValue;
+      }
     } else if (field === "productId") {
       const product = products.find((p) => p.id === value);
       newItems[index] = {
@@ -139,7 +148,7 @@ const AddOrderPage = () => {
   };
 
   const addItem = () => {
-    setOrderItems([...orderItems, { productId: "", quantity: 1 }]);
+    setOrderItems([...orderItems, { productId: "", quantity: 1, price: 0 }]);
   };
 
   const removeItem = (index) => {
@@ -198,13 +207,13 @@ const AddOrderPage = () => {
 
     if (
       orderItems.some(
-        (item) => !item.productId || item.quantity === "" || item.quantity <= 0
+        (item) => !item.productId || item.quantity === "" || item.quantity <= 0 || item.price === "" || item.price < 0
       )
     ) {
       toast({
         title: "Error",
         description:
-          "Please ensure all order items have valid products and quantities.",
+          "Please ensure all order items have valid products, quantities, and prices.",
         variant: "destructive",
       });
       return false;
@@ -230,6 +239,7 @@ const AddOrderPage = () => {
         productId: item.productId,
         productName: products.find((p) => p.id === item.productId)?.name,
         quantity: item.quantity,
+        price: item.price,
         unit: products.find((p) => p.id === item.productId)?.unit,
         dispatchedQuantity: 0,
       })),
@@ -246,7 +256,7 @@ const AddOrderPage = () => {
         phoneNumber: "",
         deliveryLocation: "",
       });
-      setOrderItems([{ productId: "", quantity: 1 }]);
+      setOrderItems([{ productId: "", quantity: 1, price: 0 }]);
       setSearchTerm("");
       setAddedBy("");
     }
@@ -406,7 +416,7 @@ const AddOrderPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                      <div className="md:col-span-8">
+                      <div className="md:col-span-6">
                         <Label
                           htmlFor={`product-${index}`}
                           className="text-sm font-medium mb-2 block"
@@ -457,7 +467,7 @@ const AddOrderPage = () => {
                         </Select>
                       </div>
 
-                      <div className="md:col-span-3">
+                      <div className="md:col-span-2">
                         <Label
                           htmlFor={`quantity-${index}`}
                           className="text-sm font-medium mb-2 block"
@@ -474,6 +484,28 @@ const AddOrderPage = () => {
                           }
                           required
                           placeholder="Enter qty"
+                          className="h-11 border-2 focus:border-primary hover:border-muted-foreground/50 transition-colors text-center font-medium"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <Label
+                          htmlFor={`price-${index}`}
+                          className="text-sm font-medium mb-2 block"
+                        >
+                          Price <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id={`price-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.price}
+                          onChange={(e) =>
+                            handleItemChange(index, "price", e.target.value)
+                          }
+                          required
+                          placeholder="0.00"
                           className="h-11 border-2 focus:border-primary hover:border-muted-foreground/50 transition-colors text-center font-medium"
                         />
                       </div>

@@ -620,6 +620,11 @@ const AnalyticsBoardPage = () => {
                               Quantity: {item.quantity || 0}{" "}
                               {item.unit || "units"}
                             </span>
+                            {item.price && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                Price: ₹{item.price}
+                              </span>
+                            )}
                             {order.status === "Confirmed" && (
                               <span
                                 className={`px-2 py-1 rounded ${
