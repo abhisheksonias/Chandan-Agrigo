@@ -55,6 +55,7 @@ export const AppProvider = ({ children }) => {
     addOrder,
     updateOrderStatus,
     updateOrderDetails,
+    deleteOrder, // <-- Expose deleteOrder
   } = useOrders(supabase, toast, session, products);
 
   const fetchData = useCallback(async (tableName, setData, errorMessage) => {
@@ -252,6 +253,7 @@ export const AppProvider = ({ children }) => {
     addOrder, 
     updateOrderStatus, 
     updateOrderDetails,
+    deleteOrder, // <-- Expose deleteOrder in context value
     confirmOrderWithStockUpdate,
     orderHasSufficientStock,
     

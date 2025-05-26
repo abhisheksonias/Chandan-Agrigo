@@ -49,6 +49,7 @@ const AnalyticsBoardPage = () => {
     updateOrderStatus,
     updateOrderDetails,
     updateProductStock,
+    deleteOrder, // <-- Add deleteOrder from context
   } = useAppContext();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("total_orders");
@@ -681,6 +682,13 @@ const AnalyticsBoardPage = () => {
           >
             <Edit className="mr-2 h-4 w-4" /> Edit Details
           </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleDeleteOrder(order.id)}
+          >
+            <X className="mr-2 h-4 w-4" /> Delete
+          </Button>
         </>
       ),
     },
@@ -746,6 +754,17 @@ const AnalyticsBoardPage = () => {
       ),
     },
   ];
+
+  // Delete order logic
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) return;
+    await deleteOrder(orderId);
+    toast({
+      title: 'Order Deleted',
+      description: 'Order has been deleted successfully.',
+      variant: 'default',
+    });
+  };
 
   return (
     <div className="space-y-6">
