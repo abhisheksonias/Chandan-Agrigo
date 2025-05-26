@@ -659,7 +659,33 @@ const AnalyticsBoardPage = () => {
                 <p className="text-sm text-muted-foreground italic">
                   No items listed
                 </p>
-              )}
+              )}            </div>
+
+            {/* Total Price Display */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-end">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-muted-foreground">Total Price:</p>
+                  <p className="text-lg font-bold text-green-600">
+                    ₹{(() => {
+                      // Use order.totalPrice if available, otherwise calculate from items
+                      if (typeof order.totalPrice === 'number') {
+                        return order.totalPrice.toFixed(2);
+                      }
+                      // Calculate total from items if totalPrice not available
+                      if (order.items && order.items.length > 0) {
+                        const calculatedTotal = order.items.reduce((sum, item) => {
+                          const quantity = Number(item.quantity) || 0;
+                          const price = Number(item.price) || Number(item.totalPrice) || 0;
+                          return sum + (quantity * price);
+                        }, 0);
+                        return calculatedTotal.toFixed(2);
+                      }
+                      return '0.00';
+                    })()}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {actions && (

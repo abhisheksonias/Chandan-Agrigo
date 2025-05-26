@@ -31,7 +31,8 @@ import CustomerForm from "@/components/forms/CustomerForm";
 import { userService } from "@/lib/supabaseService";
 
 const AddOrderPage = () => {
-  const { customers, products, addOrder, addCustomer, session } = useAppContext();
+  const { customers, products, addOrder, addCustomer, session } =
+    useAppContext();
   const { toast } = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -78,12 +79,17 @@ const AddOrderPage = () => {
   useEffect(() => {
     // Enhanced logic: always show full name if possible
     async function resolveAddedBy() {
-      if (session?.user?.user_metadata?.name && session.user.user_metadata.name.trim() !== "") {
+      if (
+        session?.user?.user_metadata?.name &&
+        session.user.user_metadata.name.trim() !== ""
+      ) {
         setAddedBy(session.user.user_metadata.name);
       } else if (session?.user?.id) {
         // Try to fetch from users table
         try {
-          const { success, data } = await userService.getUserById(session.user.id);
+          const { success, data } = await userService.getUserById(
+            session.user.id
+          );
           if (success && data?.name && data.name.trim() !== "") {
             setAddedBy(data.name);
             return;
@@ -207,7 +213,12 @@ const AddOrderPage = () => {
 
     if (
       orderItems.some(
-        (item) => !item.productId || item.quantity === "" || item.quantity <= 0 || item.price === "" || item.price < 0
+        (item) =>
+          !item.productId ||
+          item.quantity === "" ||
+          item.quantity <= 0 ||
+          item.price === "" ||
+          item.price < 0
       )
     ) {
       toast({
@@ -225,6 +236,13 @@ const AddOrderPage = () => {
     return true;
   };
 
+  // Calculate total price from orderItems
+  const totalPrice = orderItems.reduce((sum, item) => {
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    return sum + qty * price;
+  }, 0);
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -240,9 +258,10 @@ const AddOrderPage = () => {
         productName: products.find((p) => p.id === item.productId)?.name,
         quantity: item.quantity,
         price: item.price,
+        totalPrice: item.quantity * item.price,
         unit: products.find((p) => p.id === item.productId)?.unit,
         dispatchedQuantity: 0,
-      })),
+      })), // <-- Store total price in order object
     };
 
     const result = await addOrder(orderData);
@@ -509,6 +528,17 @@ const AddOrderPage = () => {
                           className="h-11 border-2 focus:border-primary hover:border-muted-foreground/50 transition-colors text-center font-medium"
                         />
                       </div>
+                      <div className="md:col-span-3">
+                        <Label className="text-sm font-medium mb-2 block">
+                          Total
+                        </Label>
+                        <div className="h-11 border-2 border-muted bg-muted/50 rounded-md flex items-center justify-center font-medium text-lg">
+                          {(
+                            (parseFloat(item.quantity) || 0) *
+                            (parseFloat(item.price) || 0)
+                          ).toFixed(2)}
+                        </div>
+                      </div>
 
                       {orderItems.length > 1 && (
                         <div className="md:col-span-1 flex justify-end">
@@ -538,6 +568,13 @@ const AddOrderPage = () => {
                   <Plus className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Add Another Item</span>
                 </Button>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <div className="font-semibold text-lg">Total Price:</div>
+                <div className="text-xl font-bold text-primary">
+                  ₹ {totalPrice.toFixed(2)}
+                </div>
               </div>
             </section>
             <section className="space-y-4 p-4 border rounded-lg">

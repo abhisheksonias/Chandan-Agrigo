@@ -36,9 +36,9 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
         deliveryLocation: order.delivery_location || "",
         items:
           order.items && order.items.length > 0
-            ? JSON.parse(JSON.stringify(order.items)).map(item => ({
+            ? JSON.parse(JSON.stringify(order.items)).map((item) => ({
                 ...item,
-                price: item.price || 0 // Ensure price field exists with default value
+                price: item.price || 0, // Ensure price field exists with default value
               }))
             : [{ productId: "", quantity: 1, price: 0 }],
       });
@@ -139,7 +139,12 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
 
     if (
       formData.items.some(
-        (item) => !item.productId || item.quantity === "" || item.quantity <= 0 || item.price === "" || item.price < 0
+        (item) =>
+          !item.productId ||
+          item.quantity === "" ||
+          item.quantity <= 0 ||
+          item.price === "" ||
+          item.price < 0
       )
     ) {
       toast({
@@ -210,11 +215,19 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
         price: item.price,
         unit: products.find((p) => p.id === item.productId)?.unit,
         dispatchedQuantity: item.dispatchedQuantity || 0,
+        totalPrice: item.quantity * item.price,
       })),
     };
 
     onSubmit(updatedDetails);
   };
+
+  // Calculate total price
+  const totalPrice = formData.items.reduce((sum, item) => {
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    return sum + qty * price;
+  }, 0);
 
   return (
     <form
@@ -435,6 +448,18 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
                     />
                   </div>
 
+                  <div className="md:col-span-3">
+                    <Label className="text-sm font-medium mb-2 block">
+                      Total
+                    </Label>
+                    <div className="h-11 border-2 border-muted bg-muted/50 rounded-md flex items-center justify-center font-medium text-lg">
+                      {(
+                        (parseFloat(item.quantity) || 0) *
+                        (parseFloat(item.price) || 0)
+                      ).toFixed(2)}
+                    </div>
+                  </div>
+
                   {formData.items.length > 1 && (
                     <div className="md:col-span-1 flex justify-end">
                       <Button
@@ -474,6 +499,16 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
             <Plus className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
             <span className="font-medium">Add Another Item</span>
           </Button>
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <div className="text-lg font-bold text-right">
+            Total Price:{" "}
+            <span className="text-primary">
+              ₹{" "}
+              {totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
         </div>
       </div>
 
