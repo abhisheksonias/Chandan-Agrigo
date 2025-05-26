@@ -766,6 +766,19 @@ const AnalyticsBoardPage = () => {
     });
   };
 
+  // Delete all orders logic
+  const handleDeleteAllOrders = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL orders? This action cannot be undone and will remove all order data.')) return;
+    for (const order of orders) {
+      await deleteOrder(order.id);
+    }
+    toast({
+      title: 'All Orders Deleted',
+      description: 'All orders have been deleted successfully.',
+      variant: 'default',
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -775,7 +788,7 @@ const AnalyticsBoardPage = () => {
             Track and manage your orders through different stages.
           </p>
         </div>
-        <div className="w-full sm:w-auto">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
           <Button
             onClick={exportToExcel}
             className="flex items-center justify-center gap-2 w-full sm:w-auto"
@@ -783,6 +796,14 @@ const AnalyticsBoardPage = () => {
           >
             <DownloadCloud className="h-4 w-4 flex-shrink-0" />
             <span>Export to Excel</span>
+          </Button>
+          <Button
+            onClick={handleDeleteAllOrders}
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="destructive"
+          >
+            <X className="h-4 w-4 flex-shrink-0" />
+            <span>Delete All Orders</span>
           </Button>
         </div>
       </div>
