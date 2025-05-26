@@ -108,6 +108,15 @@ const ProductsPage = () => {
     visible: { opacity: 1, y: 0 }
   };
 
+  // Delete stock history for a product
+  const handleDeleteStockHistory = (productId) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    if (!window.confirm('Are you sure you want to delete the entire stock history for this product? This action cannot be undone.')) return;
+    // Remove stock_history from the product and update
+    updateProduct(productId, { ...product, stock_history: [] });
+  };
+
   if (isLoadingData) {
     return <div className="text-center py-10">Loading products...</div>;
   }
@@ -198,10 +207,22 @@ const ProductsPage = () => {
                         </Button>
                       </div>
                     </div>
-                    <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => toggleProductDetails(product.id)}>
-                        {expandedProductId === product.id ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
-                        Stock History
-                    </Button>
+                    <div className="flex items-center">
+                      <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => toggleProductDetails(product.id)}>
+                          {expandedProductId === product.id ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
+                          Stock History
+                      </Button>
+                      {expandedProductId === product.id && product.stock_history && (
+                        <Button
+                          variant="destructive"
+                          size="xs"
+                          className="ml-2"
+                          onClick={() => handleDeleteStockHistory(product.id)}
+                        >
+                          Clear History
+                        </Button>
+                      )}
+                    </div>
                     <AnimatePresence>
                       {expandedProductId === product.id && product.stock_history && (
                         <motion.div
