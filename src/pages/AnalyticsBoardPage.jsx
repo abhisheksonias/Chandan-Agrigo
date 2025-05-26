@@ -589,8 +589,6 @@ const AnalyticsBoardPage = () => {
                 <PackageCheck className="h-4 w-4" />
                 Order Items:
               </h4>
-              
-
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-2">
                   {order.items.map((item, index) => {
@@ -625,6 +623,12 @@ const AnalyticsBoardPage = () => {
                                 Price: ₹{item.price}
                               </span>
                             )}
+                            {item.price && item.quantity && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
+                                Total: ₹
+                                {(item.quantity * item.price).toFixed(2)}
+                              </span>
+                            )}
                             {order.status === "Confirmed" && (
                               <span
                                 className={`px-2 py-1 rounded ${
@@ -654,34 +658,63 @@ const AnalyticsBoardPage = () => {
                       </div>
                     );
                   })}
+
+                  {/* Order Total
+                  <div className="border-t pt-2 mt-3">
+                    <div className="flex justify-between items-center p-2 bg-gray-100 rounded-md">
+                      <span className="text-sm font-semibold">
+                        Order Total:
+                      </span>
+                      <span className="text-lg font-bold text-green-700">
+                        ₹
+                        {order.items
+                          .reduce((total, item) => {
+                            const itemTotal =
+                              (item.quantity || 0) * (item.price || 0);
+                            return total + itemTotal;
+                          }, 0)
+                          .toFixed(2)}
+                      </span>
+                    </div>
+                  </div> */}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground italic">
                   No items listed
                 </p>
-              )}            </div>
+              )}
+            </div>
 
             {/* Total Price Display */}
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-end">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-muted-foreground">Total Price:</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Price:
+                  </p>
                   <p className="text-lg font-bold text-green-600">
-                    ₹{(() => {
+                    ₹
+                    {(() => {
                       // Use order.totalPrice if available, otherwise calculate from items
-                      if (typeof order.totalPrice === 'number') {
+                      if (typeof order.totalPrice === "number") {
                         return order.totalPrice.toFixed(2);
                       }
                       // Calculate total from items if totalPrice not available
                       if (order.items && order.items.length > 0) {
-                        const calculatedTotal = order.items.reduce((sum, item) => {
-                          const quantity = Number(item.quantity) || 0;
-                          const price = Number(item.price) || Number(item.totalPrice) || 0;
-                          return sum + (quantity * price);
-                        }, 0);
+                        const calculatedTotal = order.items.reduce(
+                          (sum, item) => {
+                            const quantity = Number(item.quantity) || 0;
+                            const price =
+                              Number(item.price) ||
+                              Number(item.totalPrice) ||
+                              0;
+                            return sum + quantity * price;
+                          },
+                          0
+                        );
                         return calculatedTotal.toFixed(2);
                       }
-                      return '0.00';
+                      return "0.00";
                     })()}
                   </p>
                 </div>
@@ -812,25 +845,35 @@ const AnalyticsBoardPage = () => {
 
   // Delete order logic
   const handleDeleteOrder = async (orderId) => {
-    if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this order? This action cannot be undone."
+      )
+    )
+      return;
     await deleteOrder(orderId);
     toast({
-      title: 'Order Deleted',
-      description: 'Order has been deleted successfully.',
-      variant: 'default',
+      title: "Order Deleted",
+      description: "Order has been deleted successfully.",
+      variant: "default",
     });
   };
 
   // Delete all orders logic
   const handleDeleteAllOrders = async () => {
-    if (!window.confirm('Are you sure you want to delete ALL orders? This action cannot be undone and will remove all order data.')) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete ALL orders? This action cannot be undone and will remove all order data."
+      )
+    )
+      return;
     for (const order of orders) {
       await deleteOrder(order.id);
     }
     toast({
-      title: 'All Orders Deleted',
-      description: 'All orders have been deleted successfully.',
-      variant: 'default',
+      title: "All Orders Deleted",
+      description: "All orders have been deleted successfully.",
+      variant: "default",
     });
   };
 
@@ -1048,11 +1091,15 @@ const AnalyticsBoardPage = () => {
         </TabsList>
 
         {tabsConfig.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value} className="mt-2 sm:mt-4">
+          <TabsContent
+            key={tab.value}
+            value={tab.value}
+            className="mt-2 sm:mt-4"
+          >
             <Card>
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" /> 
+                  <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
                   <span className="truncate">{tab.label}</span>
                 </CardTitle>
                 <CardDescription className="text-sm">
