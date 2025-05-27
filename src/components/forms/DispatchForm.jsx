@@ -16,19 +16,57 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (order && order.items) {
+      // Parse items if it's a string (JSON)
+      let orderItems = order.items;
+      if (typeof order.items === 'string') {
+        try {
+          orderItems = JSON.parse(order.items);
+        } catch (error) {
+          console.error('Error parsing order items:', error);
+          orderItems = [];
+        }
+      }
+
+      // Parse dispatched_items if it exists
+      let dispatchedItemsData = [];
+      if (order.dispatched_items) {
+        if (typeof order.dispatched_items === 'string') {
+          try {
+            dispatchedItemsData = JSON.parse(order.dispatched_items);
+          } catch (error) {
+            console.error('Error parsing dispatched items:', error);
+            dispatchedItemsData = [];
+          }
+        } else if (Array.isArray(order.dispatched_items)) {
+          dispatchedItemsData = order.dispatched_items;
+        }
+      }
+
+      // Calculate previously dispatched quantities for each product
+      const calculatePreviouslyDispatched = (productId) => {
+        return dispatchedItemsData.reduce((total, item) => {
+          if (item.productId === productId) {
+            return total + (item.dispatchedQuantity || item.quantity || 0);
+          }
+          return total;
+        }, 0);
+      };
+
       setDispatchedItems(
-        order.items.map(item => {
-          const previouslyDispatched = item.dispatchedQuantity || 0;
+        orderItems.map(item => {
+          const previouslyDispatched = calculatePreviouslyDispatched(item.productId);
           const remainingQuantity = (item.quantity || 0) - previouslyDispatched;
           
           return {
             productId: item.productId,
-            productName: item.productName || item.product_name,
+            productName: item.productName,
             orderedQuantity: item.quantity || 0,
             previouslyDispatched: previouslyDispatched,
-            remainingQuantity: remainingQuantity,
-            currentDispatchQuantity: dispatchType === 'full' ? remainingQuantity : 0,
+            remainingQuantity: Math.max(0, remainingQuantity),
+            currentDispatchQuantity: dispatchType === 'full' ? Math.max(0, remainingQuantity) : 0,
             unit: item.unit || 'units',
+            price: item.price || 0,
+            totalPrice: item.totalPrice || 0
           };
         })
       );
@@ -94,10 +132,18 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
           isValid = false;
         }
         
+        // Calculate total price for dispatched quantity
+        const dispatchTotalPrice = item.currentDispatchQuantity * item.price;
+        
+        // Return in the format expected by PDF generator
         return { 
+          unit: item.unit,
+          price: item.price,
+          quantity: item.currentDispatchQuantity, // Original ordered quantity (for reference)
           productId: item.productId,
+          totalPrice: dispatchTotalPrice, // Total price for dispatched quantity
           productName: item.productName,
-          quantity: item.currentDispatchQuantity,
+          dispatchedQuantity: item.currentDispatchQuantity, // Actual dispatched quantity
           dispatchedAt: new Date().toISOString()
         };
       });
@@ -226,7 +272,12 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
               !canDispatch ? 'bg-gray-50 opacity-75' : ''
             }`}>
               <div className="flex justify-between items-start">
-                <p className="font-semibold">{item.productName} ({item.unit})</p>
+                <div>
+                  <p className="font-semibold">{item.productName} ({item.unit})</p>
+                  <p className="text-sm text-muted-foreground">
+                    Price: ₹{item.price} per {item.unit}
+                  </p>
+                </div>
                 <div className="text-right text-sm">
                   <p className={`px-2 py-1 rounded text-xs ${
                     hasStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -281,6 +332,11 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
                     onChange={(e) => handleQuantityChange(item.productId, e.target.value)}
                     placeholder={`Enter quantity (0-${maxDispatchable})`}
                   />
+                  {item.currentDispatchQuantity > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Total: ₹{(item.currentDispatchQuantity * item.price).toFixed(2)}
+                    </p>
+                  )}
                 </div>
               )}
               
@@ -288,6 +344,9 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
                 <div className="bg-blue-50 p-2 rounded">
                   <p className="text-sm font-medium text-blue-800">
                     Will dispatch: {item.currentDispatchQuantity} {item.unit}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    Total: ₹{(item.currentDispatchQuantity * item.price).toFixed(2)}
                   </p>
                 </div>
               )}
@@ -311,6 +370,18 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
               <p className="text-muted-foreground">Total quantity:</p>
               <p className="font-medium">
                 {dispatchedItems.reduce((sum, item) => sum + item.currentDispatchQuantity, 0)} units
+              </p>
+            </div>
+          </div>
+          
+          {/* Total Amount */}
+          <div className="mt-2 pt-2 border-t">
+            <div className="flex justify-between items-center">
+              <p className="text-muted-foreground">Total Amount:</p>
+              <p className="font-bold text-lg">
+                ₹{dispatchedItems.reduce((sum, item) => 
+                  sum + (item.currentDispatchQuantity * item.price), 0
+                ).toFixed(2)}
               </p>
             </div>
           </div>

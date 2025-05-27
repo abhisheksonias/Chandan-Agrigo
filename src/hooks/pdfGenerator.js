@@ -1,4 +1,4 @@
-// pdfGenerator.js - Updated PDF Generation Service with background format image
+// pdfGenerator.js - Updated PDF Generation Service with database integration
 
 class PDFGenerator {
   constructor() {
@@ -222,41 +222,89 @@ class PDFGenerator {
 
     let rowY = tableStartY;
     
-    dispatchedItems.forEach((item, index) => {
+    // Parse dispatchedItems if it's a string
+    let items = dispatchedItems;
+    if (typeof dispatchedItems === 'string') {
+      try {
+        items = JSON.parse(dispatchedItems);
+      } catch (error) {
+        console.error('Error parsing dispatched items:', error);
+        items = [];
+      }
+    }
+
+    // Ensure items is an array
+    if (!Array.isArray(items)) {
+      console.warn('Dispatched items is not an array:', items);
+      items = [];
+    }
+    
+    items.forEach((item, index) => {
       // SR
       this.doc.text((index + 1).toString(), colPositions.sr, rowY, { align: 'center' });
       
-      // Particulars
-      this.doc.text(item.productName || 'Unknown Product', colPositions.particulars, rowY);
+      // Particulars - Use productName from database
+      const productName = item.productName || 'Unknown Product';
+      this.doc.text(productName, colPositions.particulars, rowY);
       
-      // Quantity
-      this.doc.text((item.quantity || 0).toString(), colPositions.qty, rowY, { align: 'center' });
+      // Quantity - Use dispatchedQuantity or quantity from database
+      const quantity = item.dispatchedQuantity || item.quantity || 0;
+      this.doc.text(quantity.toString(), colPositions.qty, rowY, { align: 'center' });
       
-      // Rate
-      this.doc.text('40.00', colPositions.rate, rowY, { align: 'right' });
+      // Rate - Use price from database
+      const rate = item.price || 0;
+      this.doc.text(rate.toFixed(2), colPositions.rate, rowY, { align: 'right' });
       
-      // Amount
-      this.doc.text(((item.quantity || 0) * 40).toFixed(2), colPositions.amount, rowY, { align: 'right' });
+      // Amount - Use totalPrice from database
+      const amount = item.totalPrice || 0;
+      this.doc.text(amount.toFixed(2), colPositions.amount, rowY, { align: 'right' });
 
       rowY += rowHeight;
     });
   }
 
   overlayTotalSection(dispatchedItems) {
-    const totalQuantity = dispatchedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
-    const totalAmount = totalQuantity * 40;
+    // Parse dispatchedItems if it's a string
+    let items = dispatchedItems;
+    if (typeof dispatchedItems === 'string') {
+      try {
+        items = JSON.parse(dispatchedItems);
+      } catch (error) {
+        console.error('Error parsing dispatched items:', error);
+        items = [];
+      }
+    }
+
+    // Ensure items is an array
+    if (!Array.isArray(items)) {
+      console.warn('Dispatched items is not an array:', items);
+      items = [];
+    }
+
+    // Calculate grand total from totalPrice of all items
+    const grandTotal = items.reduce((sum, item) => {
+      const itemTotal = item.totalPrice || 0;
+      return sum + itemTotal;
+    }, 0);
     
     // Amount in words position (based on your format)
     this.doc.setFontSize(10);
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(0, 0, 0);
-    this.doc.text(`Rs. ${this.numberToWords(totalAmount)} only`, 25, 226); // Adjust Y position
+    const amountInWords = `Rs. ${this.numberToWords(grandTotal)} only`;
+    this.doc.text(amountInWords, 25, 226); // Adjust Y position
     
-    // Grand total amount (position based on your format)
+    // Grand total amount in numbers (at the same Y coordinate as words)
+    this.doc.setFontSize(10);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(0, 0, 0); // Black text for better visibility
+    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`, 165, 226, { align: 'center' });
+    
+    // If there's a separate green background section for grand total, add it there too
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
     this.doc.setTextColor(255, 255, 255); // White text for green background
-    this.doc.text(`₹ ${totalAmount.toLocaleString('en-IN')}/-`, 165, 245, { align: 'center' }); // Adjust position
+    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN')}/-`, 165, 245, { align: 'center' }); // Adjust position for green background section
   }
 
   formatDate(dateString) {
@@ -266,17 +314,82 @@ class PDFGenerator {
   }
 
   numberToWords(num) {
-    const units = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 
-                  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-    
     if (num === 0) return 'Zero';
-    if (num < 20) return units[num];
-    if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + units[num % 10] : '');
-    if (num < 1000) return units[Math.floor(num / 100)] + ' hundred' + (num % 100 !== 0 ? ' ' + this.numberToWords(num % 100) : '');
-    if (num < 100000) return this.numberToWords(Math.floor(num / 1000)) + ' thousand' + (num % 1000 !== 0 ? ' ' + this.numberToWords(num % 1000) : '');
     
-    return 'Nineteen thousand one hundred';
+    const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const thousands = ['', 'Thousand', 'Lakh', 'Crore'];
+
+    function convertHundreds(n) {
+      let result = '';
+      
+      if (n >= 100) {
+        result += units[Math.floor(n / 100)] + ' Hundred ';
+        n %= 100;
+      }
+      
+      if (n >= 20) {
+        result += tens[Math.floor(n / 10)] + ' ';
+        n %= 10;
+      } else if (n >= 10) {
+        result += teens[n - 10] + ' ';
+        return result.trim();
+      }
+      
+      if (n > 0) {
+        result += units[n] + ' ';
+      }
+      
+      return result.trim();
+    }
+
+    function convertToWords(num) {
+      if (num === 0) return '';
+      
+      let result = '';
+      let placeValue = 0;
+      
+      // Handle crores
+      if (num >= 10000000) {
+        const crores = Math.floor(num / 10000000);
+        result += convertHundreds(crores) + ' Crore ';
+        num %= 10000000;
+      }
+      
+      // Handle lakhs
+      if (num >= 100000) {
+        const lakhs = Math.floor(num / 100000);
+        result += convertHundreds(lakhs) + ' Lakh ';
+        num %= 100000;
+      }
+      
+      // Handle thousands
+      if (num >= 1000) {
+        const thousands = Math.floor(num / 1000);
+        result += convertHundreds(thousands) + ' Thousand ';
+        num %= 1000;
+      }
+      
+      // Handle hundreds, tens, and units
+      if (num > 0) {
+        result += convertHundreds(num);
+      }
+      
+      return result.trim();
+    }
+
+    // Handle decimal part
+    const integerPart = Math.floor(num);
+    const decimalPart = Math.round((num - integerPart) * 100);
+    
+    let result = convertToWords(integerPart);
+    
+    if (decimalPart > 0) {
+      result += ' and ' + convertToWords(decimalPart) + ' Paise';
+    }
+    
+    return result || 'Zero';
   }
 }
 
