@@ -613,7 +613,27 @@ const AnalyticsBoardPage = () => {
                   </div>
                 )}
 
-                {order.updated_at && order.updated_at !== order.created_at && (
+                {/* Dispatch Date for dispatched orders */}
+                {(order.status === "Full Dispatch" || order.status === "Partial Dispatch") && Array.isArray(order.dispatched_items) && order.dispatched_items.length > 0 && (
+                  (() => {
+                    // Find the earliest dispatchedAt date in dispatched_items
+                    const dispatchedDates = order.dispatched_items
+                      .map(item => item.dispatchedAt)
+                      .filter(Boolean)
+                      .sort();
+                    const dispatchDate = dispatchedDates.length > 0 ? dispatchedDates[0] : null;
+                    return dispatchDate ? (
+                      <div>
+                        <p className="text-sm font-medium">Dispatch Date:</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(dispatchDate)}</p>
+                      </div>
+                    ) : null;
+                  })()
+                )}
+
+                {order.updated_at && order.updated_at !== order.created_at &&
+                  order.status !== "Partial Dispatch" &&
+                  order.status !== "Full Dispatch" && (
                   <div>
                     <p className="text-sm font-medium">Last Update:</p>
                     <p className="text-sm text-muted-foreground">
