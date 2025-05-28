@@ -934,6 +934,57 @@ const AnalyticsBoardPage = () => {
     });
   };
 
+  // Helper: Get product quantity summary for a list of orders
+  const getProductQuantitySummary = (orders) => {
+    const summary = {};
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const name = item.productName || item.product_name || 'Unknown Product';
+          const qty = Number(item.quantity) || 0;
+          if (!summary[name]) summary[name] = 0;
+          summary[name] += qty;
+        });
+      }
+    });
+    return summary;
+  };
+
+  // Component: ProductQuantitySummary
+  const ProductQuantitySummary = ({ orders }) => {
+    const summary = getProductQuantitySummary(orders);
+    const productNames = Object.keys(summary);
+    if (productNames.length === 0) return null;
+    return (
+      <div className="mb-4 p-4 rounded bg-blue-50 border border-blue-200">
+        <h3 className="font-semibold text-blue-800 mb-2 text-sm">Product Quantity Summary</h3>
+        <div className="flex flex-wrap gap-3">
+          {productNames.map(name => {
+            // Find product in products context
+            const product = products?.find(
+              p => (p.productName || p.product_name) === name || p.name === name
+            );
+            const stock = product ? product.stock ?? 0 : 0;
+            const ordered = summary[name];
+            const shortage = ordered > stock ? ordered - stock : 0;
+            return (
+              <div
+                key={name}
+                className={`text-xs px-3 py-1 rounded shadow-sm ${ordered > stock ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-blue-100 text-blue-900'}`}
+              >
+                <span className="font-medium">{name}:</span> {ordered}
+                <span className="ml-2">(Stock: {stock})</span>
+                {ordered > stock && (
+                  <span className="ml-2 text-red-700 font-semibold">Need {shortage} more</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -1181,6 +1232,9 @@ const AnalyticsBoardPage = () => {
             value={tab.value}
             className="mt-2 sm:mt-4"
           >
+            {(tab.value === "unconfirmed_orders" || tab.value === "confirmed_orders") && (
+              <ProductQuantitySummary orders={tab.data} />
+            )}
             <Card>
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
