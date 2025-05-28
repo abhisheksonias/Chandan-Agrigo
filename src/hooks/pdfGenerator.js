@@ -260,7 +260,7 @@ class PDFGenerator {
       const productName = item.productName || 'Unknown Product';
       this.doc.text(productName, colPositions.particulars, rowY);
       
-      // Quantity - Use dispatchedQuantity or quantity from database
+      // Quantity - Always use dispatchedQuantity for consistent format
       const quantity = item.dispatchedQuantity || item.quantity || 0;
       this.doc.text(quantity.toString(), colPositions.qty, rowY, { align: 'center' });
       
@@ -268,10 +268,10 @@ class PDFGenerator {
       const rate = item.price || 0;
       this.doc.text(rate.toFixed(2), colPositions.rate, rowY, { align: 'right' });
       
-      // Amount - Use totalPrice from database
-      const amount = item.totalPrice || 0;
+      // Amount - Calculate from dispatched quantity and price for consistency
+      const amount = quantity * rate;
       this.doc.text(amount.toFixed(2), colPositions.amount, rowY, { align: 'right' });
-
+    
       rowY += rowHeight;
     });
   }
@@ -296,7 +296,9 @@ class PDFGenerator {
 
     // Calculate grand total from totalPrice of all items
     const grandTotal = items.reduce((sum, item) => {
-      const itemTotal = item.totalPrice || 0;
+      const quantity = item.dispatchedQuantity || item.quantity || 0;
+      const rate = item.price || 0;
+      const itemTotal = quantity * rate;
       return sum + itemTotal;
     }, 0);
     

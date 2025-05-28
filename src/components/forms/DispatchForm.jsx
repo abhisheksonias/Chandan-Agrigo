@@ -108,45 +108,45 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
 
     let isValid = true;
     const itemsToSubmit = dispatchedItems
-      .filter(item => item.currentDispatchQuantity > 0)
-      .map(item => {
-        const availableStock = getAvailableStock(item.productId);
-        
-        // Check if trying to dispatch more than remaining
-        if (item.currentDispatchQuantity > item.remainingQuantity) {
-          toast({ 
-            title: 'Error', 
-            description: `Cannot dispatch more than remaining for ${item.productName}. Remaining: ${item.remainingQuantity}`, 
-            variant: 'destructive' 
-          });
-          isValid = false;
-        }
-        
-        // Check if trying to dispatch more than available stock
-        if (item.currentDispatchQuantity > availableStock) {
-          toast({ 
-            title: 'Error', 
-            description: `Not enough stock for ${item.productName}. Available: ${availableStock}`, 
-            variant: 'destructive' 
-          });
-          isValid = false;
-        }
-        
-        // Calculate total price for dispatched quantity
-        const dispatchTotalPrice = item.currentDispatchQuantity * item.price;
-        
-        // Return in the format expected by PDF generator
-        return { 
-          unit: item.unit,
-          price: item.price,
-          quantity: item.currentDispatchQuantity, // Original ordered quantity (for reference)
-          productId: item.productId,
-          totalPrice: dispatchTotalPrice, // Total price for dispatched quantity
-          productName: item.productName,
-          dispatchedQuantity: item.currentDispatchQuantity, // Actual dispatched quantity
-          dispatchedAt: new Date().toISOString()
-        };
+  .filter(item => item.currentDispatchQuantity > 0)
+  .map(item => {
+    const availableStock = getAvailableStock(item.productId);
+    
+    // Check if trying to dispatch more than remaining
+    if (item.currentDispatchQuantity > item.remainingQuantity) {
+      toast({ 
+        title: 'Error', 
+        description: `Cannot dispatch more than remaining for ${item.productName}. Remaining: ${item.remainingQuantity}`, 
+        variant: 'destructive' 
       });
+      isValid = false;
+    }
+    
+    // Check if trying to dispatch more than available stock
+    if (item.currentDispatchQuantity > availableStock) {
+      toast({ 
+        title: 'Error', 
+        description: `Not enough stock for ${item.productName}. Available: ${availableStock}`, 
+        variant: 'destructive' 
+      });
+      isValid = false;
+    }
+    
+    // Calculate total price for dispatched quantity
+    const dispatchTotalPrice = item.currentDispatchQuantity * item.price;
+    
+    // Return consistent format for both full and partial dispatch
+    return { 
+      unit: item.unit,
+      price: item.price,
+      quantity: item.currentDispatchQuantity, // Always use current dispatch quantity
+      productId: item.productId,
+      totalPrice: dispatchTotalPrice, // Total price for dispatched quantity
+      productName: item.productName,
+      dispatchedQuantity: item.currentDispatchQuantity, // Actual dispatched quantity
+      dispatchedAt: new Date().toISOString()
+    };
+  });
 
     if (!isValid) return;
 
