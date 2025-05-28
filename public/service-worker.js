@@ -6,12 +6,14 @@ const urlsToCache = [
   '/manifest.json',
   '/CAPL_Logo.png',
   '/TRISHUL_Logo.png',
+  '/format.jpg', // Ensure PDF background is cached for offline use
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(urlsToCache).catch((error) => {
+        // Don't block install if some files fail to cache
         console.warn('Failed to cache some resources:', error);
       });
     })
@@ -42,30 +44,39 @@ self.addEventListener('fetch', (event) => {
       // Clone the request because it's a stream and can only be consumed once
       const fetchRequest = event.request.clone();
 
-      return fetch(fetchRequest).then((response) => {
+      return fetch(fetchRequest).then((networkResponse) => {
         // Check if we received a valid response
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+          return networkResponse;
         }
 
         // Clone the response because it's a stream and can only be consumed once
-        const responseToCache = response.clone();
+        const responseToCache = networkResponse.clone();
 
         // Only cache successful responses for same-origin requests
         if (event.request.url.startsWith(self.location.origin)) {
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, responseToCache).catch((err) => {
+              // Don't block on cache put errors
+              console.warn('Cache put failed:', err);
+            });
           });
         }
 
-        return response;
+        return networkResponse;
       }).catch((error) => {
-        console.warn('Fetch failed for:', event.request.url, error);
-        // Return a fallback for navigation requests
+        // If navigation request fails, always try to return index.html from cache
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match('/index.html').then((fallback) => {
+            if (fallback) return fallback;
+            // As a last resort, return a simple offline response
+            return new Response('<h1>Offline</h1><p>The app is offline and the page is not cached.</p>', {
+              headers: { 'Content-Type': 'text/html' }
+            });
+          });
         }
-        throw error;
+        // For other requests, just fail
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
       });
     })
   );
