@@ -198,12 +198,15 @@ class PDFGenerator {
     this.doc.setFontSize(10);
     
     const orderNumber = orderData.id?.substring(0, 8) || Math.floor(Math.random() * 9999).toString().padStart(4, '0');
-    
+
+    // Use transportName from orderData, fallback to transportData?.name, then dispatchData?.transportName, then 'N/A'
+    const transportAgency = (orderData.transportName || transportData?.name || dispatchData?.transportName || 'N/A').toUpperCase();
+
     const orderDetails = [
       orderNumber,
       this.formatDate(orderData.created_at),
       (orderData.delivery_location || orderData.city || 'N/A').toUpperCase(),
-      (transportData?.name || dispatchData?.transportName || 'VRL LOGISTICS LTD').toUpperCase(),
+      transportAgency,
       '10-15 DAYS'
     ];
 
@@ -410,19 +413,20 @@ class PDFGenerator {
 
 // Export functions
 export const generateDispatchPDF = async (orderData, dispatchData, customerData = null, transportData = null) => {
-const pdfGenerator = new PDFGenerator();
+  const pdfGenerator = new PDFGenerator();
 
-const customer = customerData || {
-  name: orderData.customer_name,
-  city: orderData.city,
-  phone: orderData.phone_number
-};
+  const customer = customerData || {
+    name: orderData.customer_name,
+    city: orderData.city,
+    phone: orderData.phone_number
+  };
 
-const transport = transportData || {
-  name: dispatchData.transportName || 'VRL LOGISTICS LTD'
-};
+  // Use transportName from orderData if available
+  const transport = transportData || {
+    name: orderData.transportName || dispatchData.transportName || ''
+  };
 
-return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport);
+  return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport);
 };
 
 export default PDFGenerator;

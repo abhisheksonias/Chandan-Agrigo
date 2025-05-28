@@ -506,7 +506,7 @@ const AnalyticsBoardPage = () => {
 
       const dispatchData = {
         dispatchedItems: formattedDispatchedItems,
-        transportName: transportNames[0] || "VRL LOGISTICS LTD",
+        transportName: order.transportName || '',
         dispatchType: order.status === "Full Dispatch" ? "full" : "partial",
         dispatchDate: order.updated_at || new Date().toISOString()
       };
