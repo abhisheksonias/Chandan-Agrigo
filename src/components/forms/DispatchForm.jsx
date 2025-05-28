@@ -5,14 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { useAppContext } from '@/context/AppContext';
-import { generateDispatchPDF } from '@/hooks/pdfGenerator'; // Import the PDF generator
 
 const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
   const { products: allProducts, transports, customers } = useAppContext();
   const { toast } = useToast();
   const [dispatchedItems, setDispatchedItems] = useState([]);
   const [selectedTransport, setSelectedTransport] = useState('');
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (order && order.items) {
@@ -108,45 +106,45 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
 
     let isValid = true;
     const itemsToSubmit = dispatchedItems
-  .filter(item => item.currentDispatchQuantity > 0)
-  .map(item => {
-    const availableStock = getAvailableStock(item.productId);
-    
-    // Check if trying to dispatch more than remaining
-    if (item.currentDispatchQuantity > item.remainingQuantity) {
-      toast({ 
-        title: 'Error', 
-        description: `Cannot dispatch more than remaining for ${item.productName}. Remaining: ${item.remainingQuantity}`, 
-        variant: 'destructive' 
+      .filter(item => item.currentDispatchQuantity > 0)
+      .map(item => {
+        const availableStock = getAvailableStock(item.productId);
+        
+        // Check if trying to dispatch more than remaining
+        if (item.currentDispatchQuantity > item.remainingQuantity) {
+          toast({ 
+            title: 'Error', 
+            description: `Cannot dispatch more than remaining for ${item.productName}. Remaining: ${item.remainingQuantity}`, 
+            variant: 'destructive' 
+          });
+          isValid = false;
+        }
+        
+        // Check if trying to dispatch more than available stock
+        if (item.currentDispatchQuantity > availableStock) {
+          toast({ 
+            title: 'Error', 
+            description: `Not enough stock for ${item.productName}. Available: ${availableStock}`, 
+            variant: 'destructive' 
+          });
+          isValid = false;
+        }
+        
+        // Calculate total price for dispatched quantity
+        const dispatchTotalPrice = item.currentDispatchQuantity * item.price;
+        
+        // Return consistent format for both full and partial dispatch
+        return { 
+          unit: item.unit,
+          price: item.price,
+          quantity: item.currentDispatchQuantity, // Always use current dispatch quantity
+          productId: item.productId,
+          totalPrice: dispatchTotalPrice, // Total price for dispatched quantity
+          productName: item.productName,
+          dispatchedQuantity: item.currentDispatchQuantity, // Actual dispatched quantity
+          dispatchedAt: new Date().toISOString()
+        };
       });
-      isValid = false;
-    }
-    
-    // Check if trying to dispatch more than available stock
-    if (item.currentDispatchQuantity > availableStock) {
-      toast({ 
-        title: 'Error', 
-        description: `Not enough stock for ${item.productName}. Available: ${availableStock}`, 
-        variant: 'destructive' 
-      });
-      isValid = false;
-    }
-    
-    // Calculate total price for dispatched quantity
-    const dispatchTotalPrice = item.currentDispatchQuantity * item.price;
-    
-    // Return consistent format for both full and partial dispatch
-    return { 
-      unit: item.unit,
-      price: item.price,
-      quantity: item.currentDispatchQuantity, // Always use current dispatch quantity
-      productId: item.productId,
-      totalPrice: dispatchTotalPrice, // Total price for dispatched quantity
-      productName: item.productName,
-      dispatchedQuantity: item.currentDispatchQuantity, // Actual dispatched quantity
-      dispatchedAt: new Date().toISOString()
-    };
-  });
 
     if (!isValid) return;
 
@@ -170,51 +168,7 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
       dispatchDate: new Date().toISOString()
     };
 
-    try {
-      // Set loading state for PDF generation
-      setIsGeneratingPDF(true);
-
-      // Generate PDF before submitting the dispatch
-      const customerData = customers?.find(c => c.id === order.customer_id) || {
-        name: order.customer_name,
-        city: order.city,
-        phone: order.phone_number
-      };
-
-      const pdfResult = await generateDispatchPDF(
-        order,
-        dispatchData,
-        customerData,
-        selectedTransportData
-      );
-
-      if (pdfResult.success) {
-        toast({
-          title: 'PDF Generated Successfully',
-          description: `${pdfResult.message}`,
-          variant: 'default'
-        });
-      } else {
-        // Still proceed with dispatch even if PDF fails, but show warning
-        toast({
-          title: 'PDF Generation Failed',
-          description: `${pdfResult.message} Dispatch will continue.`,
-          variant: 'destructive'
-        });
-      }
-
-    } catch (error) {
-      console.error('PDF Generation Error:', error);
-      toast({
-        title: 'PDF Generation Error',
-        description: 'Failed to generate PDF, but dispatch will continue.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-    
-    // Pass the dispatch data to the parent component
+    // Remove all PDF generation logic and directly call onSubmit
     onSubmit(dispatchData);
   };
 
@@ -393,37 +347,19 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
               {dispatchType === 'full' ? 'Full Dispatch' : 'Partial Dispatch'}
             </span>
           </div>
-
-          {/* PDF Generation Notice */}
-          {isGeneratingPDF && (
-            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded border border-yellow-200 dark:border-yellow-700 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 dark:border-yellow-400 mr-2"></div>
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">Generating purchase order PDF...</p>
-            </div>
-          )}
         </div>
       </div>
       
       <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-background py-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isGeneratingPDF}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button 
           type="submit"
-          disabled={
-            dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length === 0 || 
-            isGeneratingPDF
-          }
+          disabled={dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length === 0}
           className={dispatchType === 'partial' ? 'bg-orange-600 hover:bg-orange-700' : ''}
         >
-          {isGeneratingPDF ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Generating PDF...
-            </>
-          ) : (
-            dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Process Partial Dispatch'
-          )}
+          {dispatchType === 'full' ? 'Confirm Full Dispatch' : 'Process Partial Dispatch'}
         </Button>
       </div>
     </form>
