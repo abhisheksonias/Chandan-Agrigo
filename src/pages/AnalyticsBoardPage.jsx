@@ -63,6 +63,7 @@ const AnalyticsBoardPage = () => {
   const [searchFilters, setSearchFilters] = useState({
     customerName: "",
     deliveryLocation: "",
+    productName: "",
     dateFrom: "",
     dateTo: "",
   });
@@ -83,6 +84,15 @@ const AnalyticsBoardPage = () => {
           .toLowerCase()
           .includes(searchFilters.deliveryLocation.toLowerCase());
 
+      // Add product name filtering
+      const matchesProductName =
+        !searchFilters.productName ||
+        (order.items || []).some((item) =>
+          (item.productName || item.product_name || "")
+            .toLowerCase()
+            .includes(searchFilters.productName.toLowerCase())
+        );
+
       const orderDate = new Date(order.created_at);
       const matchesDateFrom =
         !searchFilters.dateFrom ||
@@ -95,6 +105,7 @@ const AnalyticsBoardPage = () => {
       return (
         matchesCustomerName &&
         matchesDeliveryLocation &&
+        matchesProductName && // Add this line
         matchesDateFrom &&
         matchesDateTo
       );
@@ -311,6 +322,7 @@ const AnalyticsBoardPage = () => {
     setSearchFilters({
       customerName: "",
       deliveryLocation: "",
+      productName: "",
       dateFrom: "",
       dateTo: "",
     });
@@ -465,7 +477,7 @@ const AnalyticsBoardPage = () => {
     const handleDownloadInvoice = async () => {
       // Format dispatched items to match DispatchForm structure
       let formattedDispatchedItems = [];
-      
+
       if (order.dispatched_items && order.dispatched_items.length > 0) {
         // Use actual dispatched items with proper formatting
         formattedDispatchedItems = order.dispatched_items.map(item => ({
@@ -491,14 +503,14 @@ const AnalyticsBoardPage = () => {
           dispatchedAt: new Date().toISOString()
         }));
       }
-    
+
       const dispatchData = {
         dispatchedItems: formattedDispatchedItems,
         transportName: transportNames[0] || "VRL LOGISTICS LTD",
         dispatchType: order.status === "Full Dispatch" ? "full" : "partial",
         dispatchDate: order.updated_at || new Date().toISOString()
       };
-      
+
       await generateDispatchPDF(order, dispatchData);
     };
 
@@ -537,17 +549,16 @@ const AnalyticsBoardPage = () => {
                 </CardDescription>
               </div>
               <span
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
-                  order.status === "Unconfirmed"
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${order.status === "Unconfirmed"
                     ? "bg-yellow-100 text-yellow-700"
                     : order.status === "Confirmed"
-                    ? "bg-blue-100 text-blue-700"
-                    : order.status === "Partial Dispatch"
-                    ? "bg-orange-100 text-orange-700"
-                    : order.status === "Full Dispatch"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-700"
-                }`}
+                      ? "bg-blue-100 text-blue-700"
+                      : order.status === "Partial Dispatch"
+                        ? "bg-orange-100 text-orange-700"
+                        : order.status === "Full Dispatch"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                  }`}
               >
                 {order.status || "Unknown"}
               </span>
@@ -633,11 +644,10 @@ const AnalyticsBoardPage = () => {
                     return (
                       <div
                         key={index}
-                        className={`flex justify-between items-center p-2 rounded-md ${
-                          hasLowStock
+                        className={`flex justify-between items-center p-2 rounded-md ${hasLowStock
                             ? "bg-red-50 border border-red-200"
                             : "bg-muted/50"
-                        }`}
+                          }`}
                       >
                         <div className="flex-1">
                           <p className="text-sm font-medium">
@@ -663,11 +673,10 @@ const AnalyticsBoardPage = () => {
                             )}
                             {order.status === "Confirmed" && (
                               <span
-                                className={`px-2 py-1 rounded ${
-                                  hasLowStock
+                                className={`px-2 py-1 rounded ${hasLowStock
                                     ? "bg-red-100 text-red-700"
                                     : "bg-green-100 text-green-700"
-                                }`}
+                                  }`}
                               >
                                 Stock: {currentStock}
                               </span>
@@ -978,7 +987,7 @@ const AnalyticsBoardPage = () => {
               transition={{ duration: 0.2 }}
             >
               <CardContent className="pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="space-y-2">
                     <Label
                       htmlFor="customer-search"
@@ -1015,6 +1024,28 @@ const AnalyticsBoardPage = () => {
                         value={searchFilters.deliveryLocation}
                         onChange={(e) =>
                           handleFilterChange("deliveryLocation", e.target.value)
+                        }
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Add this new product name filter */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="product-search"
+                      className="text-sm font-medium"
+                    >
+                      Product Name
+                    </Label>
+                    <div className="relative">
+                      <PackageCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="product-search"
+                        placeholder="Search by product name..."
+                        value={searchFilters.productName}
+                        onChange={(e) =>
+                          handleFilterChange("productName", e.target.value)
                         }
                         className="pl-9"
                       />
@@ -1071,6 +1102,12 @@ const AnalyticsBoardPage = () => {
                         {searchFilters.deliveryLocation && (
                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
                             Location: {searchFilters.deliveryLocation}
+                          </span>
+                        )}
+                        {/* Add this new filter tag */}
+                        {searchFilters.productName && (
+                          <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">
+                            Product: {searchFilters.productName}
                           </span>
                         )}
                         {searchFilters.dateFrom && (
@@ -1145,9 +1182,9 @@ const AnalyticsBoardPage = () => {
                               tab.value === "total_orders"
                                 ? true
                                 : order.status ===
-                                  tab.label
-                                    .replace(" Orders", "")
-                                    .replace(" Dispatch", " Dispatch")
+                                tab.label
+                                  .replace(" Orders", "")
+                                  .replace(" Dispatch", " Dispatch")
                             ).length
                           }{" "}
                           total)
