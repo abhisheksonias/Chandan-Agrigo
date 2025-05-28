@@ -34,6 +34,9 @@ const useOrders = (supabase, toast, session, products) => {
     }
   };
 
+const orderId = 'ORD_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+
   // Load orders when hook initializes (removed session dependency)
   useEffect(() => {
     fetchOrders();
@@ -41,7 +44,8 @@ const useOrders = (supabase, toast, session, products) => {
 
   const addOrder = async (orderData) => {
     const newOrder = {
-      id: `ord_${crypto.randomUUID()}`,
+      // id: `ord_${crypto.randomUUID()}`,
+      id: orderId,
       customer_id: orderData.customerId || null,
       customer_name: orderData.customerName,
       city: orderData.city,

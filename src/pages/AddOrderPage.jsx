@@ -262,12 +262,10 @@ const AddOrderPage = () => {
         unit: products.find((p) => p.id === item.productId)?.unit,
         dispatchedQuantity: 0,
       })), // <-- Store total price in order object
-    };
-
-    const result = await addOrder(orderData);
+    };    const result = await addOrder(orderData);
 
     if (result) {
-      // Reset form
+      // Reset form (but keep addedBy - user should persist across orders)
       setSelectedCustomerId("");
       setCustomerDetails({
         name: "",
@@ -277,7 +275,7 @@ const AddOrderPage = () => {
       });
       setOrderItems([{ productId: "", quantity: 1, price: 0 }]);
       setSearchTerm("");
-      setAddedBy("");
+      // Don't reset addedBy - user name should persist
     }
   };
 
