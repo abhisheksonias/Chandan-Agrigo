@@ -607,7 +607,7 @@ const AnalyticsBoardPage = () => {
 
                 {order.updated_at && order.updated_at !== order.created_at && (
                   <div>
-                    <p className="text-sm font-medium">Last Updated:</p>
+                    <p className="text-sm font-medium">Dispatch Date:</p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(order.updated_at)}
                     </p>
