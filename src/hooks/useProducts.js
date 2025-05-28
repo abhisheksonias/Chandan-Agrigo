@@ -54,11 +54,24 @@ const useProducts = (supabase, toast, session) => {
     if (!session) return false;
     const productToDelete = products.find(p => p.id === productId);
     if (productToDelete && productToDelete.image) {
-      const fileName = productToDelete.image.split('/').pop();
-      try {
-        await supabase.storage.from('productimages').remove([fileName]);
-      } catch (storageError) {
-        toast({ title: 'Storage Error', description: `Could not delete image: ${storageError.message}`, variant: 'warning' });
+      // Extract the file name from the image URL (handles various Supabase URL formats)
+      let fileName = '';
+      if (productToDelete.image.includes('/productimages/')) {
+        // For URLs like: .../productimages/filename.jpg
+        fileName = productToDelete.image.split('/productimages/')[1];
+      } else if (productToDelete.image.includes('/storage/v1/object/public/productimages/')) {
+        // For URLs like: .../storage/v1/object/public/productimages/filename.jpg
+        fileName = productToDelete.image.split('/storage/v1/object/public/productimages/')[1];
+      } else {
+        // Fallback: last segment after '/'
+        fileName = productToDelete.image.split('/').pop();
+      }
+      if (fileName && fileName.trim() !== '') {
+        try {
+          await supabase.storage.from('productimages').remove([fileName]);
+        } catch (storageError) {
+          toast({ title: 'Storage Error', description: `Could not delete image: ${storageError.message}`, variant: 'warning' });
+        }
       }
     }
     const { error } = await supabase.from('products').delete().eq('id', productId);
@@ -67,7 +80,7 @@ const useProducts = (supabase, toast, session) => {
       return false;
     }
     setProducts(prev => prev.filter(p => p.id !== productId));
-    toast({ title: 'Product Deleted', description: `Product has been deleted.` });
+    toast({ title: 'Product Deleted', description: `Product and its image have been deleted.` });
     return true;
   };
 
