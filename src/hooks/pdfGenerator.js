@@ -51,7 +51,7 @@ class PDFGenerator {
         URL.revokeObjectURL(blobUrl);
       }, 100);
       // --- End mobile-friendly logic ---
-
+ 
       return { 
         success: true, 
         fileName,

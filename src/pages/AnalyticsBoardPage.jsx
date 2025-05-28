@@ -758,19 +758,18 @@ const AnalyticsBoardPage = () => {
                 <div className="flex flex-wrap gap-2">{actions(order)}</div>
               </div>
             )}
-            {isDispatched && (
-              <div className="mt-4 flex justify-end">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleDownloadInvoice}
-                  title="Download Invoice PDF"
-                >
-                  <DownloadCloud className="mr-2 h-4 w-4" />
-                  Download Invoice
-                </Button>
-              </div>
-            )}
+            {/* Show Download Invoice button for all order states */}
+            <div className="mt-4 flex justify-end">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleDownloadInvoice}
+                title="Download Invoice PDF"
+              >
+                <DownloadCloud className="mr-2 h-4 w-4" />
+                Download Invoice
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
