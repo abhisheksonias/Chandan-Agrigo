@@ -34,8 +34,28 @@ const useOrders = (supabase, toast, session, products) => {
     }
   };
 
-const orderId = 'ORD_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-
+  // Helper to generate order ID: CAPL-MM/NN (resets NN to 01 each month)
+  const generateOrderId = () => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    // Find all orders for this month
+    const monthOrders = orders.filter(order => {
+      if (!order.id) return false;
+      const match = order.id.match(/^CAPL-(\d{2})\/(\d{2})$/);
+      return match && match[1] === month;
+    });
+    // Get the highest NN for this month
+    let lastNumber = 0;
+    monthOrders.forEach(order => {
+      const match = order.id.match(/^CAPL-(\d{2})\/(\d{2})$/);
+      if (match) {
+        const num = parseInt(match[2], 10);
+        if (num > lastNumber) lastNumber = num;
+      }
+    });
+    const nextNumber = String(lastNumber + 1).padStart(2, '0');
+    return `CAPL-${month}/${nextNumber}`;
+  };
 
   // Load orders when hook initializes (removed session dependency)
   useEffect(() => {
@@ -44,8 +64,7 @@ const orderId = 'ORD_' + Math.random().toString(36).substring(2, 8).toUpperCase(
 
   const addOrder = async (orderData) => {
     const newOrder = {
-      // id: `ord_${crypto.randomUUID()}`,
-      id: orderId,
+      id: generateOrderId(),
       customer_id: orderData.customerId || null,
       customer_name: orderData.customerName,
       city: orderData.city,
