@@ -36,9 +36,22 @@ class PDFGenerator {
       const orderNumber = orderData.id?.substring(0, 8) || 'ORDER';
       const currentDate = new Date().toISOString().split('T')[0];
       const fileName = `Purchase_Order_${orderNumber}_${currentDate}.pdf`;
-      
-      this.doc.save(fileName);
-      
+
+      // --- Mobile-friendly download logic ---
+      // Instead of this.doc.save(fileName), use Blob and createObjectURL for better mobile compatibility
+      const pdfBlob = this.doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      // --- End mobile-friendly logic ---
+
       return { 
         success: true, 
         fileName,
@@ -84,8 +97,8 @@ class PDFGenerator {
 
   async addBackgroundFormat() {
     try {
-      // Path to your purchase order format image
-      const formatImagePath = './public/format.jpg'; // Update this path
+      // Use absolute path for the background image to ensure compatibility on mobile and desktop
+      const formatImagePath = '/format.jpg';
       // Alternative paths you might use:
       // const formatImagePath = '/images/purchase-order-format.png';
       // const formatImagePath = 'https://your-domain.com/purchase-order-format.png';
