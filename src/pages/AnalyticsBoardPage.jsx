@@ -525,9 +525,8 @@ const AnalyticsBoardPage = () => {
         <Card className="mb-4 hover:shadow-md transition-shadow">
           <CardHeader>
             <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <CardTitle className="text-lg">
-                  Order ID: {order.id?.substring(0, 8)}...
+              <div className="flex-1">                <CardTitle className="text-lg">
+                  Order ID: {order.id || "N/A"}
                 </CardTitle>
                 <CardDescription>
                   <span className="block">

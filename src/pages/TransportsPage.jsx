@@ -186,9 +186,8 @@ const TransportsPage = () => {
                           {getTransportOrders(transport.name).length > 0 ? (
                             <ul className="space-y-2 max-h-60 overflow-y-auto">
                               {getTransportOrders(transport.name).map(order => (
-                                <li key={order.id} className="p-2 border rounded-md text-sm bg-background">
-                                  <div className="flex justify-between">
-                                    <span>Order ID: {order.id.substring(0,8)}...</span>
+                                <li key={order.id} className="p-2 border rounded-md text-sm bg-background">                                  <div className="flex justify-between">
+                                    <span>Order ID: {order.id || "N/A"}</span>
                                     <span className={`px-2 py-0.5 rounded-full text-xs ${
                                       order.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
                                       order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' : 

@@ -31,9 +31,8 @@ class PDFGenerator {
       this.overlayOrderInformation(orderData, customerData, transportData, dispatchData);
       this.overlayItemsTable(dispatchData.dispatchedItems);
       this.overlayTotalSection(dispatchData.dispatchedItems);
-      
-      // Generate filename and save
-      const orderNumber = orderData.id?.substring(0, 8) || 'ORDER';
+        // Generate filename and save
+      const orderNumber = orderData.id || 'ORDER';
       const currentDate = new Date().toISOString().split('T')[0];
       const fileName = `Purchase_Order_${orderNumber}_${currentDate}.pdf`;
 
@@ -193,11 +192,10 @@ class PDFGenerator {
       customerY += 6;
     });
 
-    // Order details (right side)
-    this.doc.setFont('helvetica', 'normal');
+    // Order details (right side)    this.doc.setFont('helvetica', 'normal');
     this.doc.setFontSize(10);
     
-    const orderNumber = orderData.id?.substring(0, 8) || Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+    const orderNumber = orderData.id || Math.floor(Math.random() * 9999).toString().padStart(4, '0');
 
     // Use transportName from orderData, fallback to transportData?.name, then dispatchData?.transportName, then 'N/A'
     const transportAgency = (orderData.transportName || transportData?.name || dispatchData?.transportName || 'N/A').toUpperCase();

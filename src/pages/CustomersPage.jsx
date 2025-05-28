@@ -162,9 +162,8 @@ const CustomersPage = () => {
                           {getCustomerOrders(customer.id).length > 0 ? (
                             <ul className="space-y-2 max-h-60 overflow-y-auto">
                               {getCustomerOrders(customer.id).map(order => (
-                                <li key={order.id} className="p-2 border rounded-md text-sm bg-background">
-                                  <div className="flex justify-between">
-                                    <span>Order ID: {order.id.substring(0,8)}...</span>
+                                <li key={order.id} className="p-2 border rounded-md text-sm bg-background">                                  <div className="flex justify-between">
+                                    <span>Order ID: {order.id || "N/A"}</span>
                                     <span className={`px-2 py-0.5 rounded-full text-xs ${order.status === 'Confirmed' ? 'bg-green-100 text-green-700' : order.status === 'Unconfirmed' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{order.status}</span>
                                   </div>
                                   <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
