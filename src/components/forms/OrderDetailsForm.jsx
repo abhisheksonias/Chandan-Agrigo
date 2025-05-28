@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
   const { products } = useAppContext();
+  const { transports } = useAppContext(); // Get transports from context
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -25,6 +26,9 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
     deliveryLocation: "",
     items: [{ productId: "", quantity: 1, price: 0 }],
   });
+  const [selectedTransport, setSelectedTransport] = useState(
+    order?.transportName || ""
+  );
 
   // Initialize form data when order prop changes
   useEffect(() => {
@@ -42,6 +46,7 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
               }))
             : [{ productId: "", quantity: 1, price: 0 }],
       });
+      setSelectedTransport(order.transportName || "");
     }
   }, [order]);
 
@@ -199,9 +204,7 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (!validateForm()) return;
-
     // Prepare the data in the same format as expected by updateOrderDetails
     const updatedDetails = {
       customerName: formData.customerName,
@@ -217,8 +220,8 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
         dispatchedQuantity: item.dispatchedQuantity || 0,
         totalPrice: item.quantity * item.price,
       })),
+      transportName: selectedTransport,
     };
-
     onSubmit(updatedDetails);
   };
 
@@ -282,6 +285,51 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
               required
               placeholder="Enter delivery location"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Transport Selection Section */}
+      <div className="space-y-4 p-4 border rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Transport Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label
+              htmlFor="transport-select"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Select Transport Service
+            </Label>
+            <select
+              id="transport-select"
+              className="w-full border border-gray-300 dark:border-gray-600 
+                   rounded px-3 py-2 
+                   bg-white dark:bg-gray-700 
+                   text-gray-900 dark:text-gray-100
+                   focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
+                   focus:border-blue-500 dark:focus:border-blue-400 
+                   transition-colors duration-200
+                   hover:border-gray-400 dark:hover:border-gray-500"
+              value={selectedTransport}
+              onChange={(e) => setSelectedTransport(e.target.value)}
+            >
+              <option value="" className="text-gray-500 dark:text-gray-400">
+                Choose a transport service...
+              </option>
+              {transports &&
+                transports.length > 0 &&
+                transports.map((t) => (
+                  <option
+                    key={t.id}
+                    value={t.name}
+                    className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                  >
+                    {t.name}
+                  </option>
+                ))}
+            </select>
           </div>
         </div>
       </div>

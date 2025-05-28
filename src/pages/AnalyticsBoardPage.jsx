@@ -596,21 +596,18 @@ const AnalyticsBoardPage = () => {
                   </p>
                 </div>
 
-                {/* Show transport information for dispatched orders */}
-                {isDispatched && transportNames.length > 0 && (
+                {/* Show transport agency from transportName column if present */}
+                {order.transportName && (
                   <div className="flex items-start gap-2">
                     <Truck className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                     <div>
                       <p className="text-sm font-medium">Transport Agency:</p>
                       <div className="text-sm text-muted-foreground">
-                        {transportNames.map((name, index) => (
-                          <span
-                            key={index}
-                            className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1"
-                          >
-                            {name}
-                          </span>
-                        ))}
+                        <span
+                          className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1"
+                        >
+                          {order.transportName}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -618,7 +615,7 @@ const AnalyticsBoardPage = () => {
 
                 {order.updated_at && order.updated_at !== order.created_at && (
                   <div>
-                    <p className="text-sm font-medium">Dispatch Date:</p>
+                    <p className="text-sm font-medium">Last Update:</p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(order.updated_at)}
                     </p>

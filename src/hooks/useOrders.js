@@ -75,6 +75,7 @@ const useOrders = (supabase, toast, session, products) => {
       dispatched_items: [],
       delivered_by: [],
       added_by: orderData.added_by,
+      transportName: orderData.transportName || '',
       user_id: session?.user?.id || null // Made optional
     };
 
@@ -213,6 +214,7 @@ const useOrders = (supabase, toast, session, products) => {
       phone_number: updatedDetails.phoneNumber,
       delivery_location: updatedDetails.deliveryLocation,
       items: updatedDetails.items,
+      transportName: updatedDetails.transportName || '',
       updated_at: new Date().toISOString()
     };
 

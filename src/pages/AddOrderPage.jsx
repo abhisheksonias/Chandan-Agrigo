@@ -33,6 +33,7 @@ import { userService } from "@/lib/supabaseService";
 const AddOrderPage = () => {
   const { customers, products, addOrder, addCustomer, session } =
     useAppContext();
+  const { transports } = useAppContext(); // Get transports from context
   const { toast } = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -48,6 +49,7 @@ const AddOrderPage = () => {
   const [addedBy, setAddedBy] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
+  const [selectedTransport, setSelectedTransport] = useState(""); // New state for transport
 
   const filteredCustomers = customers.filter(
     (customer) =>
@@ -253,6 +255,7 @@ const AddOrderPage = () => {
       phoneNumber: customerDetails.phoneNumber,
       deliveryLocation: customerDetails.deliveryLocation,
       added_by: addedBy,
+      transportName: selectedTransport, // <-- Store selected transport name
       items: orderItems.map((item) => ({
         productId: item.productId,
         productName: products.find((p) => p.id === item.productId)?.name,
@@ -262,7 +265,8 @@ const AddOrderPage = () => {
         unit: products.find((p) => p.id === item.productId)?.unit,
         dispatchedQuantity: 0,
       })), // <-- Store total price in order object
-    };    const result = await addOrder(orderData);
+    };
+    const result = await addOrder(orderData);
 
     if (result) {
       // Reset form (but keep addedBy - user should persist across orders)
@@ -275,6 +279,7 @@ const AddOrderPage = () => {
       });
       setOrderItems([{ productId: "", quantity: 1, price: 0 }]);
       setSearchTerm("");
+      setSelectedTransport(""); // Reset transport selection
       // Don't reset addedBy - user name should persist
     }
   };
@@ -410,6 +415,52 @@ const AddOrderPage = () => {
               </div>
             </section>
 
+            {/* Transport Selection Section */}
+            <section className="space-y-4 p-4 border rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Transport Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="w-full">
+                  <Label
+                    htmlFor="transport-select"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
+                    Select Transport Service
+                  </Label>
+                  <select
+                    id="transport-select"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 
+                   bg-white dark:bg-gray-700 
+                   text-gray-900 dark:text-gray-100
+                   focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
+                   focus:border-blue-500 dark:focus:border-blue-400 
+                   transition-colors duration-200
+                   hover:border-gray-400 dark:hover:border-gray-500"
+                    value={selectedTransport}
+                    onChange={(e) => setSelectedTransport(e.target.value)}
+                  >
+                    <option
+                      value=""
+                      className="text-gray-500 dark:text-gray-400"
+                    >
+                      Choose a transport service...
+                    </option>
+                    {transports &&
+                      transports.length > 0 &&
+                      transports.map((t) => (
+                        <option
+                          key={t.id}
+                          value={t.name}
+                          className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                        >
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </section>
             <section className="space-y-6 p-6 border rounded-xl shadow-sm bg-gradient-to-br from-background to-muted/10">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">

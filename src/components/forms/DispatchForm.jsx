@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { useAppContext } from '@/context/AppContext';
 
 const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
-  const { products: allProducts, transports, customers } = useAppContext();
+  const { products: allProducts } = useAppContext();
   const { toast } = useToast();
   const [dispatchedItems, setDispatchedItems] = useState([]);
-  const [selectedTransport, setSelectedTransport] = useState('');
 
   useEffect(() => {
     if (order && order.items) {
@@ -82,10 +80,6 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
     );
   };
 
-  const handleTransportChange = (value) => {
-    setSelectedTransport(value);
-  };
-
   const getAvailableStock = (productId) => {
     const product = allProducts?.find(p => p.id === productId);
     return product ? (product.stock || 0) : 0;
@@ -94,16 +88,6 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate transport selection
-    if (!selectedTransport) {
-      toast({ 
-        title: 'Transport Required', 
-        description: 'Please select a transport service for dispatch.', 
-        variant: 'destructive' 
-      });
-      return;
-    }
-
     let isValid = true;
     const itemsToSubmit = dispatchedItems
       .filter(item => item.currentDispatchQuantity > 0)
@@ -157,13 +141,9 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
       return;
     }
     
-    const selectedTransportData = transports?.find(t => t.id === selectedTransport);
-    
     // Structure the data to match your database format and expected structure
     const dispatchData = {
       dispatchedItems: itemsToSubmit,
-      transportId: selectedTransport,
-      transportName: selectedTransportData?.name || '',
       dispatchType: dispatchType,
       dispatchDate: new Date().toISOString()
     };
@@ -176,42 +156,6 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      {/* Transport Selection Section */}
-      <div className="p-3 border rounded-md bg-blue-50 dark:bg-blue-950/20">
-        <h3 className="font-semibold mb-3 text-blue-800 dark:text-blue-200">Transport Information</h3>
-        <div className="space-y-2">
-          <Label htmlFor="transport-select">Select Transport Service *</Label>
-          <Select value={selectedTransport} onValueChange={handleTransportChange}>
-            <SelectTrigger id="transport-select">
-              <SelectValue placeholder="Choose a transport service..." />
-            </SelectTrigger>
-            <SelectContent>
-              {transports && transports.length > 0 ? (
-                transports.map(transport => (
-                  <SelectItem key={transport.id} value={transport.id}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{transport.name}</span>
-                      {transport.address && (
-                        <span className="text-xs text-muted-foreground">{transport.address}</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="no-transports" disabled>
-                  No transport services available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-          {selectedTransport && (
-            <div className="text-sm text-muted-foreground">
-              Selected: {transports?.find(t => t.id === selectedTransport)?.name}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Items Section */}
       <div className="space-y-3">
         <h3 className="font-semibold">Items to Dispatch</h3>
