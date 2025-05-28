@@ -23,62 +23,52 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
   if (event.request.method !== 'GET') {
     return;
   }
-
   // Skip caching for API requests and external resources
   if (event.request.url.includes('/api/') || 
       !event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
+  // Handle navigation requests (SPA routing)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match('/index.html').then((fallback) => {
+          if (fallback) return fallback;
+          return new Response('<h1>Offline</h1><p>The app is offline and the page is not cached.</p>', {
+            headers: { 'Content-Type': 'text/html' }
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // For assets (JS/CSS/images), try network first, then cache
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Return cached version or fetch from network
-      if (response) {
-        return response;
-      }
-
-      // Clone the request because it's a stream and can only be consumed once
-      const fetchRequest = event.request.clone();
-
-      return fetch(fetchRequest).then((networkResponse) => {
-        // Check if we received a valid response
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
-        }
-
-        // Clone the response because it's a stream and can only be consumed once
-        const responseToCache = networkResponse.clone();
-
-        // Only cache successful responses for same-origin requests
-        if (event.request.url.startsWith(self.location.origin)) {
+    fetch(event.request)
+      .then((response) => {
+        // If valid, update cache
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache).catch((err) => {
-              // Don't block on cache put errors
               console.warn('Cache put failed:', err);
             });
           });
         }
-
-        return networkResponse;
-      }).catch((error) => {
-        // If navigation request fails, always try to return index.html from cache
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html').then((fallback) => {
-            if (fallback) return fallback;
-            // As a last resort, return a simple offline response
-            return new Response('<h1>Offline</h1><p>The app is offline and the page is not cached.</p>', {
-              headers: { 'Content-Type': 'text/html' }
-            });
-          });
-        }
-        // For other requests, just fail
-        return new Response('', { status: 503, statusText: 'Service Unavailable' });
-      });
-    })
+        return response;
+      })
+      .catch(() =>
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          // For assets, do NOT fallback to /index.html
+          return new Response('', { status: 503, statusText: 'Service Unavailable' });
+        })
+      )
   );
 });
 
