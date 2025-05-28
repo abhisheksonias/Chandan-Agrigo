@@ -353,32 +353,30 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
             </div>
           );
         })}
-      </div>
-
-      {/* Summary Section */}
+      </div>      {/* Summary Section */}
       <div className="border-t pt-4">
-        <div className="bg-gray-50 p-3 rounded">
-          <h4 className="font-medium mb-2">Dispatch Summary</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded border dark:border-gray-700">
+          <h4 className="font-medium mb-2 text-gray-900 dark:text-gray-100">Dispatch Summary</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Items to dispatch:</p>
-              <p className="font-medium">
+              <p className="font-medium text-gray-900 dark:text-gray-100">
                 {dispatchedItems.filter(item => item.currentDispatchQuantity > 0).length} items
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Total quantity:</p>
-              <p className="font-medium">
+              <p className="font-medium text-gray-900 dark:text-gray-100">
                 {dispatchedItems.reduce((sum, item) => sum + item.currentDispatchQuantity, 0)} units
               </p>
             </div>
           </div>
           
           {/* Total Amount */}
-          <div className="mt-2 pt-2 border-t">
-            <div className="flex justify-between items-center">
+          <div className="mt-2 pt-2 border-t dark:border-gray-600">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <p className="text-muted-foreground">Total Amount:</p>
-              <p className="font-bold text-lg">
+              <p className="font-bold text-lg text-primary">
                 ₹{dispatchedItems.reduce((sum, item) => 
                   sum + (item.currentDispatchQuantity * item.price), 0
                 ).toFixed(2)}
@@ -387,20 +385,20 @@ const DispatchForm = ({ order, dispatchType, onSubmit, onCancel }) => {
           </div>
           
           {/* Preview of what will happen */}
-          <div className="mt-3 p-2 bg-blue-50 rounded">
-            <p className="text-sm font-medium text-blue-800 mb-1">
+          <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-700">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
               After dispatch, this order will be moved to:
             </p>
-            <span className="inline-block px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">
+            <span className="inline-block px-2 py-1 bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-xs rounded border border-orange-200 dark:border-orange-700">
               {dispatchType === 'full' ? 'Full Dispatch' : 'Partial Dispatch'}
             </span>
           </div>
 
           {/* PDF Generation Notice */}
           {isGeneratingPDF && (
-            <div className="mt-3 p-2 bg-yellow-50 rounded flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
-              <p className="text-sm text-yellow-800">Generating purchase order PDF...</p>
+            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded border border-yellow-200 dark:border-yellow-700 flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 dark:border-yellow-400 mr-2"></div>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">Generating purchase order PDF...</p>
             </div>
           )}
         </div>
