@@ -54,15 +54,22 @@ const TransportsPage = () => {
   const toggleTransportDetails = (transportId) => {
     setExpandedTransportId(expandedTransportId === transportId ? null : transportId);
   };
-
   const getTransportOrders = (transportName) => {
     return orders.filter(order => {
-      if (!order.delivered_by) return false;
-      // Handle both string and array cases for delivered_by
-      if (Array.isArray(order.delivered_by)) {
-        return order.delivered_by.includes(transportName);
+      // Check transportName field first (primary storage for transport info)
+      if (order.transportName === transportName) {
+        return true;
       }
-      return order.delivered_by === transportName;
+      
+      // Check delivered_by field for backward compatibility (used for dispatched orders)
+      if (order.delivered_by) {
+        if (Array.isArray(order.delivered_by)) {
+          return order.delivered_by.includes(transportName);
+        }
+        return order.delivered_by === transportName;
+      }
+      
+      return false;
     }).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
