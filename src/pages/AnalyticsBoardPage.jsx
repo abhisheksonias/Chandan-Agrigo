@@ -463,10 +463,42 @@ const AnalyticsBoardPage = () => {
 
     // Handler for invoice download
     const handleDownloadInvoice = async () => {
+      // Format dispatched items to match DispatchForm structure
+      let formattedDispatchedItems = [];
+      
+      if (order.dispatched_items && order.dispatched_items.length > 0) {
+        // Use actual dispatched items with proper formatting
+        formattedDispatchedItems = order.dispatched_items.map(item => ({
+          unit: item.unit || 'units',
+          price: item.price || 0,
+          quantity: item.quantity || item.dispatchedQuantity || 0, // Original ordered quantity (for reference)
+          productId: item.productId,
+          totalPrice: item.totalPrice || (item.dispatchedQuantity || item.quantity || 0) * (item.price || 0), // Total price for dispatched quantity
+          productName: item.productName,
+          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0, // Actual dispatched quantity
+          dispatchedAt: item.dispatchedAt || new Date().toISOString()
+        }));
+      } else if (order.items && order.items.length > 0) {
+        // Fallback to order items if no dispatched items (shouldn't happen for dispatched orders)
+        formattedDispatchedItems = order.items.map(item => ({
+          unit: item.unit || 'units',
+          price: item.price || 0,
+          quantity: item.quantity || 0,
+          productId: item.productId,
+          totalPrice: (item.quantity || 0) * (item.price || 0),
+          productName: item.productName || item.product_name,
+          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0,
+          dispatchedAt: new Date().toISOString()
+        }));
+      }
+    
       const dispatchData = {
-        dispatchedItems: order.dispatched_items || order.items || [],
+        dispatchedItems: formattedDispatchedItems,
         transportName: transportNames[0] || "VRL LOGISTICS LTD",
+        dispatchType: order.status === "Full Dispatch" ? "full" : "partial",
+        dispatchDate: order.updated_at || new Date().toISOString()
       };
+      
       await generateDispatchPDF(order, dispatchData);
     };
 
