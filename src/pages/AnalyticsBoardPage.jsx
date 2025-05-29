@@ -391,55 +391,57 @@ const AnalyticsBoardPage = () => {
       const wb = XLSX.utils.book_new();
 
       // Format orders data for export
-      const formattedOrders = filteredOrders
-        .map((order) => {
-          // Create a basic order info object
-          const baseOrderInfo = {
-            "Order ID": order.id,
-            Customer: order.customer_name || "N/A",
-            Phone: order.phone_number || "N/A",
-            City: order.city || "N/A",
-            "Delivery Location": order.delivery_location || "N/A",
-            Status: order.status || "Unknown",
-            "Order Date": formatDate(order.created_at),
-            "Added By": order.added_by || "N/A",
-            // 'Last Updated': order.updated_at ? formatDate(order.updated_at) : 'N/A',
-          };
+      const formattedOrders = filteredOrders.map((order) => {
+        // Create a basic order info object
+        const baseOrderInfo = {
+          "Order ID": order.id,
+          Customer: order.customer_name || "N/A",
+          Phone: order.phone_number || "N/A",
+          City: order.city || "N/A",
+          "Delivery Location": order.delivery_location || "N/A",
+          Status: order.status || "Unknown",
+          "Order Date": formatDate(order.created_at),
+          "Added By": order.added_by || "N/A",
+        };
 
-          // Handle transport info for dispatched orders
-          if (
-            order.delivered_by &&
-            Array.isArray(order.delivered_by) &&
-            order.delivered_by.length > 0
-          ) {
-            baseOrderInfo["Transport"] = getTransportNames(
-              order.delivered_by
-            ).join(", ");
-          } else {
-            baseOrderInfo["Transport"] = "N/A";
-          }
+        // Handle transport info - check both transportName and delivered_by fields
+        let transportName = "N/A";
+        if (order.transportName) {
+          transportName = order.transportName;
+        } else if (
+          order.delivered_by &&
+          Array.isArray(order.delivered_by) &&
+          order.delivered_by.length > 0
+        ) {
+          transportName = getTransportNames(order.delivered_by).join(", ");
+        }
+        baseOrderInfo["Transport"] = transportName;
 
-          // If order has no items, return just the order info
-          if (!order.items || order.items.length === 0) {
-            return {
-              ...baseOrderInfo,
-              Product: "No items",
-              Quantity: 0,
-              Unit: "",
-              "Dispatched Quantity": 0,
-            };
-          }
+        // Combine product details into a single string
+        let productSummary = "No items";
+        let totalPrice = 0;
+        if (order.items && order.items.length > 0) {
+          productSummary = order.items
+            .map(
+              (item) =>
+                `${item.productName || item.product_name || "Unknown Product"} x${
+                  item.quantity || 0
+                }`
+            )
+            .join(", ");
+          totalPrice = order.items.reduce((sum, item) => {
+            const quantity = Number(item.quantity) || 0;
+            const price = Number(item.price) || 0;
+            return sum + quantity * price;
+          }, 0);
+        }
 
-          // If order has items, return one row per item with order info repeated
-          return order.items.map((item) => ({
-            ...baseOrderInfo,
-            Product: item.productName || item.product_name || "Unknown Product",
-            Quantity: item.quantity || 0,
-            Unit: item.unit || "units",
-            "Dispatched Quantity": item.dispatchedQuantity || 0,
-          }));
-        })
-        .flat(); // Flatten the array of arrays
+        return {
+          ...baseOrderInfo,
+          Products: productSummary,
+          "Total Price": totalPrice.toFixed(2),
+        };
+      });
 
       // Create worksheet from data
       const ws = XLSX.utils.json_to_sheet(formattedOrders);
