@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart3,
   CheckCircle,
-  ChevronDown,
+  
   Clock,
-  DollarSign,
+
   DownloadCloud,
   Edit,
   Filter,
@@ -44,6 +44,7 @@ import OrderDetailsForm from "@/components/forms/OrderDetailsForm";
 import DispatchForm from "@/components/forms/DispatchForm";
 import * as XLSX from "xlsx";
 import { generateDispatchPDF } from "@/hooks/pdfGenerator";
+import OrderCard from "@/components/OrderCard";
 
 const AnalyticsBoardPage = () => {
   const {
@@ -516,283 +517,6 @@ const AnalyticsBoardPage = () => {
     return { totalPrice, productSummary };
   };
 
-  // Pure function, no hooks inside
-  const renderOrderCard = (order, actions, isExpanded, onToggleExpand, totalPrice, productSummary) => {
-    const transportNames = getTransportNames(order.delivered_by);
-    // Handler for invoice download
-    const handleDownloadInvoice = async (e) => {
-      e.stopPropagation();
-      let formattedDispatchedItems = [];
-      if (order.dispatched_items && order.dispatched_items.length > 0) {
-        formattedDispatchedItems = order.dispatched_items.map(item => ({
-          unit: item.unit || 'units',
-          price: item.price || 0,
-          quantity: item.quantity || item.dispatchedQuantity || 0,
-          productId: item.productId,
-          totalPrice: item.totalPrice || (item.dispatchedQuantity || item.quantity || 0) * (item.price || 0),
-          productName: item.productName,
-          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0,
-          dispatchedAt: item.dispatchedAt || new Date().toISOString()
-        }));
-      } else if (order.items && order.items.length > 0) {
-        formattedDispatchedItems = order.items.map(item => ({
-          unit: item.unit || 'units',
-          price: item.price || 0,
-          quantity: item.quantity || 0,
-          productId: item.productId,
-          totalPrice: (item.quantity || 0) * (item.price || 0),
-          productName: item.productName || item.product_name,
-          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0,
-          dispatchedAt: new Date().toISOString()
-        }));
-      }
-      const dispatchData = {
-        dispatchedItems: formattedDispatchedItems,
-        transportName: order.transportName || '',
-        dispatchType: order.status === "Full Dispatch" ? "full" : "partial",
-        dispatchDate: order.updated_at || new Date().toISOString()
-      };
-      await generateDispatchPDF(order, dispatchData);
-    };
-    return (
-      <motion.div
-        key={order.id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        layout
-      >
-        <Card className="mb-2 hover:shadow-md transition-shadow">
-          {/* Card Header - Always visible */}
-          <div className="px-3 py-1.5 cursor-pointer" onClick={() => onToggleExpand(order.id)}>
-            <div className="flex flex-col sm:flex-row gap-1 sm:items-center">
-              {/* Left Side - Order basics */}
-              <div className="flex-1 flex items-center space-x-2">
-                {/* Status indicator dot with tooltip */}
-                <div 
-                  className={`h-2.5 w-2.5 rounded-full flex-shrink-0 border ${
-                    order.status === "Unconfirmed" ? "bg-yellow-500 border-yellow-600" : 
-                    order.status === "Confirmed" ? "bg-blue-500 border-blue-600" : 
-                    order.status === "Partial Dispatch" ? "bg-orange-500 border-orange-600" : 
-                    order.status === "Full Dispatch" ? "bg-green-500 border-green-600" : 
-                    "bg-gray-500 border-gray-600"
-                  }`}
-                  title={order.status}
-                />
-                
-                {/* Order ID and customer name */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm">
-                      #{order.id || "N/A"}
-                    </span>
-                    <span className="text-muted-foreground text-sm max-w-[200px] truncate">
-                      {order.customer_name || "N/A"}
-                    </span>
-                  </div>
-                  
-                  {/* Compact summary row */}
-                  <div className="flex items-center justify-between gap-2 mt-0.5 pr-2">
-                    <span className="text-xs text-muted-foreground truncate max-w-[160px] sm:max-w-[250px]">
-                      {productSummary}
-                    </span>
-                    <span className="font-medium text-xs text-primary whitespace-nowrap">
-                      ₹{totalPrice}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Right side - Status and actions */}
-              <div className="flex items-center justify-between sm:justify-end gap-2">
-                {/* Status badge */}
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                  order.status === "Unconfirmed" ? "bg-yellow-100 text-yellow-700" : 
-                  order.status === "Confirmed" ? "bg-blue-100 text-blue-700" : 
-                  order.status === "Partial Dispatch" ? "bg-orange-100 text-orange-700" : 
-                  order.status === "Full Dispatch" ? "bg-green-100 text-green-700" : 
-                  "bg-gray-100 text-gray-700"
-                }`}>
-                  {order.status || "Unknown"}
-                </span>
-                
-                <div className="flex items-center">
-                  {/* Invoice button - always visible */}
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={handleDownloadInvoice} 
-                    className="h-6 w-6 p-0 rounded-full"
-                    title="Download Invoice"
-                  >
-                    <DownloadCloud className="h-3.5 w-3.5" />
-                  </Button>
-                  
-                  {/* Expand/collapse indicator */}
-                  <div className="h-6 w-6 flex items-center justify-center">
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-              {/* Meta info row - condensed details always visible */}
-            <div className="flex flex-wrap mt-1 justify-between">
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-                {/* Date */}
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Calendar className="h-2.5 w-2.5" /> 
-                  {formatDate(order.created_at).split(',')[0]}
-                </span>
-                
-                {/* Location */}
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <MapPin className="h-2.5 w-2.5" /> 
-                  <span className="truncate max-w-[100px]" title={order.delivery_location || order.city || "N/A"}>
-                    {order.delivery_location || order.city || "N/A"}
-                  </span>
-                </span>
-                
-                {/* Transport (if available) */}
-                {(order.transportName || transportNames.length > 0) && (
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Truck className="h-2.5 w-2.5" /> 
-                    <span className="truncate max-w-[80px]" title={order.transportName || transportNames.join(", ")}>
-                      {order.transportName || transportNames.join(", ")}
-                    </span>
-                  </span>
-                )}
-              </div>
-              
-              {/* Phone (if available) - Right aligned */}
-              {order.phone_number && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap">
-                  <Phone className="h-2.5 w-2.5" /> 
-                  {order.phone_number}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Expandable Details */}
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <CardContent className="border-t pt-3 pb-2">                  {/* Order Items - Detailed view */}
-                  {order.items && order.items.length > 0 ? (
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-semibold">Order Items:</h4>
-                      
-                      {/* Items table for better use of space */}
-                      <div className="overflow-x-auto -mx-3">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/30">
-                            <tr>
-                              <th className="text-left font-medium px-2 py-1">Product</th>
-                              <th className="text-center font-medium px-2 py-1">Qty</th>
-                              <th className="text-right font-medium px-2 py-1">Price</th>
-                              <th className="text-right font-medium px-2 py-1">Total</th>
-                              {order.status === "Confirmed" && (
-                                <th className="text-center font-medium px-2 py-1">Stock</th>
-                              )}
-                              {order.status === "Partial Dispatch" && (
-                                <th className="text-center font-medium px-2 py-1">Dispatched</th>
-                              )}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {order.items.map((item, index) => {
-                              const currentStock = getProductStock(item.productId);
-                              const hasLowStock = order.status === "Confirmed" && currentStock < (item.quantity || 0);
-                              const itemTotal = (Number(item.quantity) || 0) * (Number(item.price) || 0);
-                              
-                              return (
-                                <tr key={index} className={hasLowStock ? "bg-red-50" : (index % 2 === 0 ? "" : "bg-muted/10")}>
-                                  <td className="px-2 py-1">
-                                    {item.productName || item.product_name || "Unknown Product"}
-                                  </td>
-                                  <td className="px-2 py-1 text-center whitespace-nowrap">
-                                    {item.quantity || 0} {item.unit || "units"}
-                                  </td>
-                                  <td className="px-2 py-1 text-right whitespace-nowrap">
-                                    ₹{Number(item.price || 0).toFixed(2)}
-                                  </td>
-                                  <td className="px-2 py-1 text-right font-medium whitespace-nowrap">
-                                    ₹{itemTotal.toFixed(2)}
-                                  </td>
-                                  
-                                  {order.status === "Confirmed" && (
-                                    <td className={`px-2 py-1 text-center whitespace-nowrap ${hasLowStock ? "text-red-600 font-medium" : "text-green-600"}`}>
-                                      {currentStock} {hasLowStock && "⚠️"}
-                                    </td>
-                                  )}
-                                  
-                                  {order.status === "Partial Dispatch" && (
-                                    <td className="px-2 py-1 text-center whitespace-nowrap">
-                                      {item.dispatchedQuantity > 0 ? (
-                                        <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs inline-block">
-                                          {item.dispatchedQuantity}
-                                        </span>
-                                      ) : "-"}
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                            
-                            {/* Total row */}
-                            <tr className="border-t">
-                              <td colSpan={order.status === "Confirmed" || order.status === "Partial Dispatch" ? 3 : 3} 
-                                  className="px-2 py-1.5 text-right font-medium">
-                                Total:
-                              </td>
-                              <td className="px-2 py-1.5 text-right font-medium">
-                                ₹{totalPrice}
-                              </td>
-                              {(order.status === "Confirmed" || order.status === "Partial Dispatch") && <td></td>}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">No items listed</p>
-                  )}                  {/* Additional details and Actions in one row */}
-                  <div className="flex justify-between items-start mt-3 pt-3 border-t gap-2 flex-col sm:flex-row">
-                    {/* Left side - additional details */}
-                    <div className="text-xs flex flex-wrap gap-x-4 gap-y-1">
-                      <div>
-                        <span className="text-muted-foreground mr-1">Added By:</span>
-                        <span>{order.added_by || "N/A"}</span>
-                      </div>
-                      
-                      <div>
-                        <span className="text-muted-foreground mr-1">Order Date:</span>
-                        <span>{formatDate(order.created_at)}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Right side - action buttons */}
-                    {actions && (
-                      <div className="flex flex-wrap gap-1.5 mt-2 sm:mt-0">
-                        {actions(order)}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Card>
-      </motion.div>
-  )};
-
   const tabsConfig = [
     {
       value: "total_orders",
@@ -1264,13 +988,20 @@ const AnalyticsBoardPage = () => {
                     <div className="space-y-1.5">
                       {tab.data.map((order) => {
                         const { totalPrice, productSummary } = getOrderCardData(order);
-                        return renderOrderCard(
-                          order,
-                          tab.actions,
-                          expandedOrderIds.has(order.id),
-                          toggleOrderExpand,
-                          totalPrice,
-                          productSummary
+                        return (
+                          <OrderCard
+                            key={order.id}
+                            order={order}
+                            actions={tab.actions}
+                            isExpanded={expandedOrderIds.has(order.id)}
+                            onToggleExpand={toggleOrderExpand}
+                            totalPrice={totalPrice}
+                            productSummary={productSummary}
+                            getTransportNames={getTransportNames}
+                            getProductStock={getProductStock}
+                            formatDate={formatDate}
+                            generateDispatchPDF={generateDispatchPDF}
+                          />
                         );
                       })}
                     </div>
