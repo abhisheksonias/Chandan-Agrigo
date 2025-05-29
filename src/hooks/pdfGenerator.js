@@ -331,12 +331,12 @@ class PDFGenerator {
     
     // Column positions matching your format
     const colPositions = {
-      sr: 25,
-      image: 40,
-      particulars: 70,
+      sr: 23,
+      image: 50,
+      particulars: 60,
       qty: 120,
-      rate: 152,
-      amount: 182
+      rate: 155,
+      amount: 187
     };
 
     // Table content
@@ -410,16 +410,46 @@ class PDFGenerator {
       const quantity = item.dispatchedQuantity || item.quantity || 0;
       this.doc.text(quantity.toString(), colPositions.qty, rowY, { align: 'center' });
       
-      // Rate
+      // Rate - Add rupee symbol
       const rate = item.price || 0;
-      this.doc.text(rate.toFixed(2), colPositions.rate, rowY, { align: 'right' });
+      this.doc.text(`Rs. ${rate.toFixed(2)}`, colPositions.rate, rowY, { align: 'right' });
       
-      // Amount
+      // Amount - Add rupee symbol
       const amount = quantity * rate;
-      this.doc.text(amount.toFixed(2), colPositions.amount, rowY, { align: 'right' });
+      this.doc.text(`Rs. ${amount.toFixed(2)}`, colPositions.amount, rowY, { align: 'right' });
     
       rowY += rowHeight;
     }
+  }
+
+  // Helper method to wrap text
+  wrapText(text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const textWidth = this.doc.getTextWidth(testLine);
+      
+      if (textWidth > maxWidth) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Word is too long, force break
+          lines.push(word);
+        }
+      } else {
+        currentLine = testLine;
+      }
+    });
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
   }
 
   overlayTotalSection(dispatchedItems) {
@@ -447,18 +477,31 @@ class PDFGenerator {
       return sum + itemTotal;
     }, 0);
     
-    // Amount in words
+    // Amount in words with text wrapping
     this.doc.setFontSize(10);
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(0, 0, 0);
-    const amountInWords = `Rs. ${this.numberToWords(grandTotal)} only`;
-    this.doc.text(amountInWords, 25, 226);
     
-    // Grand total amount
+    const amountInWords = `Rs. ${this.numberToWords(grandTotal)} only`;
+    const maxWidth = 120; // Maximum width for the amount in words area
+    const wrappedLines = this.wrapText(amountInWords, maxWidth);
+    
+    let startY = 226;
+    const lineHeight = 4; // Space between lines
+    
+    // Display wrapped lines
+    wrappedLines.forEach((line, index) => {
+      this.doc.text(line, 25, startY + (index * lineHeight));
+    });
+    
+    // Grand total amount with proper rupee symbol
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
     this.doc.setTextColor(255, 255, 255);
-    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN')}/-`, 165, 226, { align: 'center' });
+    
+    // Use Rs. instead of ₹ symbol to ensure compatibility
+    const totalText = `Rs. ${grandTotal.toLocaleString('en-IN')}/-`;
+    this.doc.text(totalText, 165, 226, { align: 'center' });
   }
 
   formatDate(dateString) {
