@@ -24,6 +24,7 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
     city: "",
     phoneNumber: "",
     deliveryLocation: "",
+    deliveryTime: "",
     items: [{ productId: "", quantity: 1, price: 0 }],
   });
   const [selectedTransport, setSelectedTransport] = useState(
@@ -38,11 +39,12 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
         city: order.city || "",
         phoneNumber: order.phone_number || "",
         deliveryLocation: order.delivery_location || "",
+        deliveryTime: order.delivery_time || "", // This will fetch from database
         items:
           order.items && order.items.length > 0
             ? JSON.parse(JSON.stringify(order.items)).map((item) => ({
                 ...item,
-                price: item.price || 0, // Ensure price field exists with default value
+                price: item.price || 0,
               }))
             : [{ productId: "", quantity: 1, price: 0 }],
       });
@@ -142,6 +144,15 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
       return false;
     }
 
+    if (!formData.deliveryTime.trim()) {
+      toast({
+        title: "Error",
+        description: "Delivery time is required (e.g., Morning, 2-3 PM, etc.).",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     if (
       formData.items.some(
         (item) =>
@@ -211,6 +222,7 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
       city: formData.city,
       phoneNumber: formData.phoneNumber,
       deliveryLocation: formData.deliveryLocation,
+      deliveryTime: formData.deliveryTime,
       items: formData.items.map((item) => ({
         productId: item.productId,
         productName: products.find((p) => p.id === item.productId)?.name,
@@ -275,6 +287,20 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
               placeholder="Enter phone number"
             />
           </div>
+          <div>
+            <Label htmlFor="deliveryTime">Delivery Time *</Label>
+            <Input
+              id="deliveryTime"
+              name="deliveryTime"
+              type="text"
+              value={formData.deliveryTime}
+              onChange={handleChange}
+              required
+              placeholder="Enter delivery time (e.g., 2-3 PM, Morning, Evening)"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label htmlFor="deliveryLocation">Delivery Location *</Label>
             <Textarea
@@ -360,11 +386,10 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
             return (
               <div
                 key={index}
-                className={`group relative p-5 border-2 rounded-xl bg-card transition-all duration-200 ${
-                  isDispatched
+                className={`group relative p-5 border-2 rounded-xl bg-card transition-all duration-200 ${isDispatched
                     ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20"
                     : "border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 hover:shadow-md"
-                }`}
+                  }`}
               >
                 <div className="absolute -top-3 left-4 bg-background px-2 py-1 text-xs font-medium rounded-md border flex items-center gap-2">
                   <span className="text-muted-foreground">
@@ -410,12 +435,11 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
                           >
                             <div className="flex justify-between items-center w-full">
                               <span
-                                className={`font-medium ${
-                                  product.stock <= 0 &&
-                                  product.id !== item.productId
+                                className={`font-medium ${product.stock <= 0 &&
+                                    product.id !== item.productId
                                     ? "text-muted-foreground"
                                     : ""
-                                }`}
+                                  }`}
                               >
                                 {product.name}
                               </span>
@@ -424,11 +448,10 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
                                   {product.unit}
                                 </span>
                                 <span
-                                  className={`px-2 py-1 rounded ${
-                                    product.stock > 0
+                                  className={`px-2 py-1 rounded ${product.stock > 0
                                       ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
                                       : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
-                                  }`}
+                                    }`}
                                 >
                                   Stock: {product.stock}
                                 </span>
@@ -516,11 +539,10 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
                         size="icon"
                         onClick={() => removeItem(index)}
                         disabled={dispatchedQuantity > 0}
-                        className={`h-11 w-11 rounded-lg transition-all transform ${
-                          dispatchedQuantity > 0
+                        className={`h-11 w-11 rounded-lg transition-all transform ${dispatchedQuantity > 0
                             ? "opacity-40 cursor-not-allowed"
                             : "opacity-70 group-hover:opacity-100 hover:scale-105"
-                        }`}
+                          }`}
                         title={
                           dispatchedQuantity > 0
                             ? "Cannot remove dispatched items"
