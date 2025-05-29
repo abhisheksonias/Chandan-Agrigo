@@ -3,20 +3,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart3,
   CheckCircle,
+  ChevronDown,
   Clock,
-  Truck,
+  DollarSign,
+  DownloadCloud,
+  Edit,
+  Filter,
+  MapPin,
   PackageCheck,
   PackageX,
-  Edit,
-  Send,
-  MapPin,
-  User,
   Phone,
-  Calendar,
   Search,
-  Filter,
+  Send,
+  Truck,
+  User,
+  Calendar,
   X,
-  DownloadCloud,
 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
@@ -68,6 +70,9 @@ const AnalyticsBoardPage = () => {
     dateTo: "",
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Expanded order IDs state
+  const [expandedOrderIds, setExpandedOrderIds] = useState(new Set());
 
   // Filtered orders based on search criteria
   const filteredOrders = useMemo(() => {
@@ -470,30 +475,66 @@ const AnalyticsBoardPage = () => {
     }
   };
 
-  const renderOrderCard = (order, actions) => {
+  // Helper to toggle expanded state
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrderIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper to compute total price and product summary for each order
+  const getOrderCardData = (order) => {
+    // Total price
+    let totalPrice = "0.00";
+    if (typeof order.totalPrice === "number") {
+      totalPrice = order.totalPrice.toFixed(2);
+    } else if (order.items && order.items.length > 0) {
+      totalPrice = order.items
+        .reduce(
+          (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+          0
+        )
+        .toFixed(2);
+    }
+    // Product summary
+    let productSummary = "No items";
+    if (order.items && order.items.length === 1) {
+      const item = order.items[0];
+      const name = item.productName || item.product_name || "Unknown";
+      const shortName = name.length > 20 ? name.substring(0, 18) + "..." : name;
+      productSummary = `${shortName} (${item.quantity || 0} ${item.unit || "units"})`;
+    } else if (order.items && order.items.length > 1) {
+      const totalQty = order.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+      productSummary = `${order.items.length} items (${totalQty} units total)`;
+    }
+    return { totalPrice, productSummary };
+  };
+
+  // Pure function, no hooks inside
+  const renderOrderCard = (order, actions, isExpanded, onToggleExpand, totalPrice, productSummary) => {
     const transportNames = getTransportNames(order.delivered_by);
-    const isDispatched =
-      order.status === "Full Dispatch" || order.status === "Partial Dispatch";
-
     // Handler for invoice download
-    const handleDownloadInvoice = async () => {
-      // Format dispatched items to match DispatchForm structure
+    const handleDownloadInvoice = async (e) => {
+      e.stopPropagation();
       let formattedDispatchedItems = [];
-
       if (order.dispatched_items && order.dispatched_items.length > 0) {
-        // Use actual dispatched items with proper formatting
         formattedDispatchedItems = order.dispatched_items.map(item => ({
           unit: item.unit || 'units',
           price: item.price || 0,
-          quantity: item.quantity || item.dispatchedQuantity || 0, // Original ordered quantity (for reference)
+          quantity: item.quantity || item.dispatchedQuantity || 0,
           productId: item.productId,
-          totalPrice: item.totalPrice || (item.dispatchedQuantity || item.quantity || 0) * (item.price || 0), // Total price for dispatched quantity
+          totalPrice: item.totalPrice || (item.dispatchedQuantity || item.quantity || 0) * (item.price || 0),
           productName: item.productName,
-          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0, // Actual dispatched quantity
+          dispatchedQuantity: item.dispatchedQuantity || item.quantity || 0,
           dispatchedAt: item.dispatchedAt || new Date().toISOString()
         }));
       } else if (order.items && order.items.length > 0) {
-        // Fallback to order items if no dispatched items (shouldn't happen for dispatched orders)
         formattedDispatchedItems = order.items.map(item => ({
           unit: item.unit || 'units',
           price: item.price || 0,
@@ -505,17 +546,14 @@ const AnalyticsBoardPage = () => {
           dispatchedAt: new Date().toISOString()
         }));
       }
-
       const dispatchData = {
         dispatchedItems: formattedDispatchedItems,
         transportName: order.transportName || '',
         dispatchType: order.status === "Full Dispatch" ? "full" : "partial",
         dispatchDate: order.updated_at || new Date().toISOString()
       };
-
       await generateDispatchPDF(order, dispatchData);
     };
-
     return (
       <motion.div
         key={order.id}
@@ -524,284 +562,236 @@ const AnalyticsBoardPage = () => {
         exit={{ opacity: 0, y: -10 }}
         layout
       >
-        <Card className="mb-4 hover:shadow-md transition-shadow">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">                <CardTitle className="text-lg">
-                  Order ID: {order.id || "N/A"}
-                </CardTitle>
-                <CardDescription>
-                  <span className="block">
-                    <span className="flex items-center gap-1 mb-1">
-                      <User className="h-3 w-3" />
-                      <span>{order.customer_name || "N/A"}</span>
-                    </span>
-                    <span className="flex items-center gap-1 mb-1">
-                      <MapPin className="h-3 w-3" />
-                      <span>{order.city || "N/A"}</span>
-                    </span>
-                    {order.phone_number && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{order.phone_number}</span>
-                      </span>
-                    )}
-                  </span>
-                </CardDescription>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${order.status === "Unconfirmed"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : order.status === "Confirmed"
-                      ? "bg-blue-100 text-blue-700"
-                      : order.status === "Partial Dispatch"
-                        ? "bg-orange-100 text-orange-700"
-                        : order.status === "Full Dispatch"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-700"
+        <Card className="mb-2 hover:shadow-md transition-shadow">
+          {/* Card Header - Always visible */}
+          <div className="px-3 py-1.5 cursor-pointer" onClick={() => onToggleExpand(order.id)}>
+            <div className="flex flex-col sm:flex-row gap-1 sm:items-center">
+              {/* Left Side - Order basics */}
+              <div className="flex-1 flex items-center space-x-2">
+                {/* Status indicator dot with tooltip */}
+                <div 
+                  className={`h-2.5 w-2.5 rounded-full flex-shrink-0 border ${
+                    order.status === "Unconfirmed" ? "bg-yellow-500 border-yellow-600" : 
+                    order.status === "Confirmed" ? "bg-blue-500 border-blue-600" : 
+                    order.status === "Partial Dispatch" ? "bg-orange-500 border-orange-600" : 
+                    order.status === "Full Dispatch" ? "bg-green-500 border-green-600" : 
+                    "bg-gray-500 border-gray-600"
                   }`}
-              >
-                {order.status || "Unknown"}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">Delivery Location:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.delivery_location || "N/A"}
-                    </p>
+                  title={order.status}
+                />
+                
+                {/* Order ID and customer name */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-sm">
+                      #{order.id || "N/A"}
+                    </span>
+                    <span className="text-muted-foreground text-sm max-w-[200px] truncate">
+                      {order.customer_name || "N/A"}
+                    </span>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">Order Date:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(order.created_at)}
-                    </p>
+                  
+                  {/* Compact summary row */}
+                  <div className="flex items-center justify-between gap-2 mt-0.5 pr-2">
+                    <span className="text-xs text-muted-foreground truncate max-w-[160px] sm:max-w-[250px]">
+                      {productSummary}
+                    </span>
+                    <span className="font-medium text-xs text-primary whitespace-nowrap">
+                      ₹{totalPrice}
+                    </span>
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm font-medium">Added By:</p>
-                  <p className="text-sm text-muted-foreground">
-                    {order.added_by || "N/A"}
-                  </p>
+              
+              {/* Right side - Status and actions */}
+              <div className="flex items-center justify-between sm:justify-end gap-2">
+                {/* Status badge */}
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                  order.status === "Unconfirmed" ? "bg-yellow-100 text-yellow-700" : 
+                  order.status === "Confirmed" ? "bg-blue-100 text-blue-700" : 
+                  order.status === "Partial Dispatch" ? "bg-orange-100 text-orange-700" : 
+                  order.status === "Full Dispatch" ? "bg-green-100 text-green-700" : 
+                  "bg-gray-100 text-gray-700"
+                }`}>
+                  {order.status || "Unknown"}
+                </span>
+                
+                <div className="flex items-center">
+                  {/* Invoice button - always visible */}
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={handleDownloadInvoice} 
+                    className="h-6 w-6 p-0 rounded-full"
+                    title="Download Invoice"
+                  >
+                    <DownloadCloud className="h-3.5 w-3.5" />
+                  </Button>
+                  
+                  {/* Expand/collapse indicator */}
+                  <div className="h-6 w-6 flex items-center justify-center">
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </div>
                 </div>
-
-                {/* Show transport agency from transportName column if present */}
-                {order.transportName && (
-                  <div className="flex items-start gap-2">
-                    <Truck className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium">Transport Agency:</p>
-                      <div className="text-sm text-muted-foreground">
-                        <span
-                          className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1"
-                        >
-                          {order.transportName}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Dispatch Date for dispatched orders */}
-                {(order.status === "Full Dispatch" || order.status === "Partial Dispatch") && Array.isArray(order.dispatched_items) && order.dispatched_items.length > 0 && (
-                  (() => {
-                    // Find the earliest dispatchedAt date in dispatched_items
-                    const dispatchedDates = order.dispatched_items
-                      .map(item => item.dispatchedAt)
-                      .filter(Boolean)
-                      .sort();
-                    const dispatchDate = dispatchedDates.length > 0 ? dispatchedDates[0] : null;
-                    return dispatchDate ? (
-                      <div>
-                        <p className="text-sm font-medium">Dispatch Date:</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(dispatchDate)}</p>
-                      </div>
-                    ) : null;
-                  })()
-                )}
-
-                {order.updated_at && order.updated_at !== order.created_at &&
-                  order.status !== "Partial Dispatch" &&
-                  order.status !== "Full Dispatch" && (
-                  <div>
-                    <p className="text-sm font-medium">Last Update:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(order.updated_at)}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
-
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                <PackageCheck className="h-4 w-4" />
-                Order Items:
-              </h4>
-              {order.items && order.items.length > 0 ? (
-                <div className="space-y-2">
-                  {order.items.map((item, index) => {
-                    const currentStock = getProductStock(item.productId);
-                    // Only show stock warnings for confirmed orders (ready for dispatch)
-                    const hasLowStock =
-                      order.status === "Confirmed" &&
-                      currentStock < (item.quantity || 0);
-
-                    return (
-                      <div
-                        key={index}
-                        className={`flex justify-between items-center p-2 rounded-md ${hasLowStock
-                            ? "bg-red-50 border border-red-200"
-                            : "bg-muted/50"
-                          }`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">
-                            {item.productName ||
-                              item.product_name ||
-                              "Unknown Product"}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>
-                              Quantity: {item.quantity || 0}{" "}
-                              {item.unit || "units"}
-                            </span>
-                            {item.price && (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                                Price: ₹{item.price}
-                              </span>
-                            )}
-                            {item.price && item.quantity && (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
-                                Total: ₹
-                                {(item.quantity * item.price).toFixed(2)}
-                              </span>
-                            )}
-                            {order.status === "Confirmed" && (
-                              <span
-                                className={`px-2 py-1 rounded ${hasLowStock
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-green-100 text-green-700"
-                                  }`}
-                              >
-                                Stock: {currentStock}
-                              </span>
-                            )}
-                          </div>
-                          {hasLowStock && (
-                            <p className="text-xs text-red-600 mt-1">
-                              ⚠️ Insufficient stock for full dispatch
-                            </p>
-                          )}
-                        </div>
-                        {order.status === "Partial Dispatch" &&
-                          item.dispatchedQuantity > 0 && (
-                            <div className="text-right">
-                              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                                Dispatched: {item.dispatchedQuantity}
-                              </span>
-                            </div>
-                          )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Order Total
-                  <div className="border-t pt-2 mt-3">
-                    <div className="flex justify-between items-center p-2 bg-gray-100 rounded-md">
-                      <span className="text-sm font-semibold">
-                        Order Total:
-                      </span>
-                      <span className="text-lg font-bold text-green-700">
-                        ₹
-                        {order.items
-                          .reduce((total, item) => {
-                            const itemTotal =
-                              (item.quantity || 0) * (item.price || 0);
-                            return total + itemTotal;
-                          }, 0)
-                          .toFixed(2)}
-                      </span>
-                    </div>
-                  </div> */}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  No items listed
-                </p>
+              {/* Meta info row - condensed details always visible */}
+            <div className="flex flex-wrap mt-1 justify-between">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                {/* Date */}
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Calendar className="h-2.5 w-2.5" /> 
+                  {formatDate(order.created_at).split(',')[0]}
+                </span>
+                
+                {/* Location */}
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <MapPin className="h-2.5 w-2.5" /> 
+                  <span className="truncate max-w-[100px]" title={order.delivery_location || order.city || "N/A"}>
+                    {order.delivery_location || order.city || "N/A"}
+                  </span>
+                </span>
+                
+                {/* Transport (if available) */}
+                {(order.transportName || transportNames.length > 0) && (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <Truck className="h-2.5 w-2.5" /> 
+                    <span className="truncate max-w-[80px]" title={order.transportName || transportNames.join(", ")}>
+                      {order.transportName || transportNames.join(", ")}
+                    </span>
+                  </span>
+                )}
+              </div>
+              
+              {/* Phone (if available) - Right aligned */}
+              {order.phone_number && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap">
+                  <Phone className="h-2.5 w-2.5" /> 
+                  {order.phone_number}
+                </span>
               )}
             </div>
+          </div>
 
-            {/* Total Price Display */}
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex justify-end">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Price:
-                  </p>
-                  <p className="text-lg font-bold text-green-600">
-                    ₹
-                    {(() => {
-                      // Use order.totalPrice if available, otherwise calculate from items
-                      if (typeof order.totalPrice === "number") {
-                        return order.totalPrice.toFixed(2);
-                      }
-                      // Calculate total from items if totalPrice not available
-                      if (order.items && order.items.length > 0) {
-                        const calculatedTotal = order.items.reduce(
-                          (sum, item) => {
-                            const quantity = Number(item.quantity) || 0;
-                            const price =
-                              Number(item.price) ||
-                              Number(item.totalPrice) ||
-                              0;
-                            return sum + quantity * price;
-                          },
-                          0
-                        );
-                        return calculatedTotal.toFixed(2);
-                      }
-                      return "0.00";
-                    })()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {actions && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex flex-wrap gap-2">{actions(order)}</div>
-              </div>
-            )}
-            {/* Show Download Invoice button for all order states */}
-            <div className="mt-4 flex justify-end">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleDownloadInvoice}
-                title="Download Invoice PDF"
+          {/* Expandable Details */}
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
               >
-                <DownloadCloud className="mr-2 h-4 w-4" />
-                Download Invoice
-              </Button>
-            </div>
-          </CardContent>
+                <CardContent className="border-t pt-3 pb-2">                  {/* Order Items - Detailed view */}
+                  {order.items && order.items.length > 0 ? (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold">Order Items:</h4>
+                      
+                      {/* Items table for better use of space */}
+                      <div className="overflow-x-auto -mx-3">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/30">
+                            <tr>
+                              <th className="text-left font-medium px-2 py-1">Product</th>
+                              <th className="text-center font-medium px-2 py-1">Qty</th>
+                              <th className="text-right font-medium px-2 py-1">Price</th>
+                              <th className="text-right font-medium px-2 py-1">Total</th>
+                              {order.status === "Confirmed" && (
+                                <th className="text-center font-medium px-2 py-1">Stock</th>
+                              )}
+                              {order.status === "Partial Dispatch" && (
+                                <th className="text-center font-medium px-2 py-1">Dispatched</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {order.items.map((item, index) => {
+                              const currentStock = getProductStock(item.productId);
+                              const hasLowStock = order.status === "Confirmed" && currentStock < (item.quantity || 0);
+                              const itemTotal = (Number(item.quantity) || 0) * (Number(item.price) || 0);
+                              
+                              return (
+                                <tr key={index} className={hasLowStock ? "bg-red-50" : (index % 2 === 0 ? "" : "bg-muted/10")}>
+                                  <td className="px-2 py-1">
+                                    {item.productName || item.product_name || "Unknown Product"}
+                                  </td>
+                                  <td className="px-2 py-1 text-center whitespace-nowrap">
+                                    {item.quantity || 0} {item.unit || "units"}
+                                  </td>
+                                  <td className="px-2 py-1 text-right whitespace-nowrap">
+                                    ₹{Number(item.price || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-2 py-1 text-right font-medium whitespace-nowrap">
+                                    ₹{itemTotal.toFixed(2)}
+                                  </td>
+                                  
+                                  {order.status === "Confirmed" && (
+                                    <td className={`px-2 py-1 text-center whitespace-nowrap ${hasLowStock ? "text-red-600 font-medium" : "text-green-600"}`}>
+                                      {currentStock} {hasLowStock && "⚠️"}
+                                    </td>
+                                  )}
+                                  
+                                  {order.status === "Partial Dispatch" && (
+                                    <td className="px-2 py-1 text-center whitespace-nowrap">
+                                      {item.dispatchedQuantity > 0 ? (
+                                        <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs inline-block">
+                                          {item.dispatchedQuantity}
+                                        </span>
+                                      ) : "-"}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                            
+                            {/* Total row */}
+                            <tr className="border-t">
+                              <td colSpan={order.status === "Confirmed" || order.status === "Partial Dispatch" ? 3 : 3} 
+                                  className="px-2 py-1.5 text-right font-medium">
+                                Total:
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-medium">
+                                ₹{totalPrice}
+                              </td>
+                              {(order.status === "Confirmed" || order.status === "Partial Dispatch") && <td></td>}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">No items listed</p>
+                  )}                  {/* Additional details and Actions in one row */}
+                  <div className="flex justify-between items-start mt-3 pt-3 border-t gap-2 flex-col sm:flex-row">
+                    {/* Left side - additional details */}
+                    <div className="text-xs flex flex-wrap gap-x-4 gap-y-1">
+                      <div>
+                        <span className="text-muted-foreground mr-1">Added By:</span>
+                        <span>{order.added_by || "N/A"}</span>
+                      </div>
+                      
+                      <div>
+                        <span className="text-muted-foreground mr-1">Order Date:</span>
+                        <span>{formatDate(order.created_at)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Right side - action buttons */}
+                    {actions && (
+                      <div className="flex flex-wrap gap-1.5 mt-2 sm:mt-0">
+                        {actions(order)}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
       </motion.div>
-    );
-  };
+  )};
 
   const tabsConfig = [
     {
@@ -987,30 +977,31 @@ const AnalyticsBoardPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="space-y-6">      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics Board</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Board</h1>
+          <p className="text-muted-foreground text-sm">
             Track and manage your orders through different stages.
           </p>
         </div>
-        <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+        <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
           <Button
             onClick={exportToExcel}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
             variant="outline"
+            size="sm"
           >
-            <DownloadCloud className="h-4 w-4 flex-shrink-0" />
+            <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
             <span>Export to Excel</span>
           </Button>
           <Button
             onClick={handleDeleteAllOrders}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
             variant="destructive"
+            size="sm"
           >
-            <X className="h-4 w-4 flex-shrink-0" />
-            <span>Delete All Orders</span>
+            <X className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Delete All</span>
           </Button>
         </div>
       </div>
@@ -1209,21 +1200,19 @@ const AnalyticsBoardPage = () => {
         </AnimatePresence>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1 h-auto p-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">        <TabsList className="grid w-full grid-cols-5 gap-1 h-auto p-1 overflow-x-auto scrollbar-hide">
           {tabsConfig.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 py-2 sm:px-3 sm:py-2.5 min-h-[2.5rem] sm:min-h-[3rem]"
+              className="flex items-center justify-center gap-1 text-xs md:text-sm px-2 py-1.5 min-h-[2.25rem] whitespace-nowrap"
             >
-              <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0">
-                <span className="hidden sm:inline truncate">{tab.label}</span>
-                <span className="sm:hidden text-xs truncate leading-tight">
+              <tab.icon className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="hidden xs:inline truncate">
                   {tab.label.split(" ")[0]}
                 </span>
-                <span className="text-xs opacity-75 leading-tight">
+                <span className="text-xs opacity-75 whitespace-nowrap">
                   ({tab.data.length})
                 </span>
               </div>
@@ -1239,43 +1228,51 @@ const AnalyticsBoardPage = () => {
           >
             {(tab.value === "unconfirmed_orders" || tab.value === "confirmed_orders") && (
               <ProductQuantitySummary orders={tab.data} />
-            )}
-            <Card>
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                  <span className="truncate">{tab.label}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                    <span>Showing {tab.data.length} orders</span>
-                    {hasActiveFilters &&
-                      filteredOrders.length !== orders.length && (
-                        <span className="text-primary text-xs sm:text-sm">
-                          (filtered from{" "}
-                          {
-                            orders.filter((order) =>
-                              tab.value === "total_orders"
-                                ? true
-                                : order.status ===
-                                tab.label
-                                  .replace(" Orders", "")
-                                  .replace(" Dispatch", " Dispatch")
-                            ).length
-                          }{" "}
-                          total)
-                        </span>
-                      )}
-                  </div>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-6">
+            )}            <Card>
+              <CardHeader className="pb-2 sm:pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-1.5 text-base sm:text-lg">
+                    <tab.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{tab.label}</span>
+                  </CardTitle>
+                  
+                  <CardDescription className="m-0 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{tab.data.length}</span> orders
+                      {hasActiveFilters &&
+                        filteredOrders.length !== orders.length && (
+                          <span className="text-primary">
+                            (filtered from{" "}
+                            {
+                              orders.filter((order) =>
+                                tab.value === "total_orders"
+                                  ? true
+                                  : order.status ===
+                                  tab.label
+                                    .replace(" Orders", "")
+                                    .replace(" Dispatch", " Dispatch")
+                              ).length
+                            })
+                          </span>
+                        )}
+                    </div>
+                  </CardDescription>
+                </div>
+              </CardHeader>              <CardContent className="px-2 sm:px-4 py-2">
                 {tab.data.length > 0 ? (
                   <AnimatePresence>
-                    <div className="space-y-2 sm:space-y-4">
-                      {tab.data.map((order) =>
-                        renderOrderCard(order, tab.actions)
-                      )}
+                    <div className="space-y-1.5">
+                      {tab.data.map((order) => {
+                        const { totalPrice, productSummary } = getOrderCardData(order);
+                        return renderOrderCard(
+                          order,
+                          tab.actions,
+                          expandedOrderIds.has(order.id),
+                          toggleOrderExpand,
+                          totalPrice,
+                          productSummary
+                        );
+                      })}
                     </div>
                   </AnimatePresence>
                 ) : (

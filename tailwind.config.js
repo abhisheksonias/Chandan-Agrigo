@@ -6,8 +6,7 @@ module.exports = {
 		'./components/**/*.{js,jsx}',
 		'./app/**/*.{js,jsx}',
 		'./src/**/*.{js,jsx}',
-	],
-	theme: {
+	],	theme: {
 		container: {
 			center: true,
 			padding: '2rem',
@@ -16,6 +15,9 @@ module.exports = {
 			},
 		},
 		extend: {
+			screens: {
+				'xs': '480px',
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
