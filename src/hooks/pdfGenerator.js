@@ -1,4 +1,4 @@
-// pdfGenerator.js - Updated PDF Generation Service with database integration
+// pdfGenerator.js - PDF Generation Service with selective compression
 
 class PDFGenerator {
   constructor() {
@@ -6,14 +6,27 @@ class PDFGenerator {
     this.pageHeight = 297; // A4 height in mm
     this.margin = 15;
     this.currentY = 20;
+    
+    // Compression settings for product images only
+    this.maxProductImageWidth = 300; // Maximum width for product images
+    this.maxProductImageHeight = 300; // Maximum height for product images
+    this.productImageQuality = 0.6; // JPEG quality for product images (0.1 to 1.0)
   }
 
-  async generatePurchaseOrderPDF(orderData, dispatchData, customerData, transportData) {
+  async generatePurchaseOrderPDF(orderData, dispatchData, customerData, transportData, products = []) {
     try {
       // Dynamically import jsPDF
       const { jsPDF } = await import('jspdf');
       
-      this.doc = new jsPDF('p', 'mm', 'a4');
+      // Use compression options for PDF structure only
+      this.doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true, // Enable PDF compression
+        precision: 2 // Reduce coordinate precision
+      });
+      
       this.currentY = 20;
 
       // Set up document properties
@@ -24,20 +37,20 @@ class PDFGenerator {
         creator: 'Chandan Agrico System'
       });
 
-      // Add the background format first
+      // Add the background format first (NO compression for format image)
       await this.addBackgroundFormat();
       
       // Then overlay the text content
       this.overlayOrderInformation(orderData, customerData, transportData, dispatchData);
-      this.overlayItemsTable(dispatchData.dispatchedItems);
+      await this.overlayItemsTable(dispatchData.dispatchedItems, products);
       this.overlayTotalSection(dispatchData.dispatchedItems);
-        // Generate filename and save
+        
+      // Generate filename and save
       const orderNumber = orderData.id || 'ORDER';
       const currentDate = new Date().toISOString().split('T')[0];
       const fileName = `Purchase_Order_${orderNumber}_${currentDate}.pdf`;
 
       // --- Mobile-friendly download logic ---
-      // Instead of this.doc.save(fileName), use Blob and createObjectURL for better mobile compatibility
       const pdfBlob = this.doc.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
@@ -54,7 +67,8 @@ class PDFGenerator {
       return { 
         success: true, 
         fileName,
-        message: `Purchase order PDF generated successfully for Order ${orderNumber}` 
+        message: `Purchase order PDF generated successfully for Order ${orderNumber}`,
+        fileSize: Math.round(pdfBlob.size / 1024) + ' KB' // Show file size
       };
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -66,28 +80,125 @@ class PDFGenerator {
     }
   }
 
-  // Method to convert image file to base64
-  async fileToBase64(file) {
+  // Product image compression method (kept for small product icons in table)
+  async compressProductImage(imageData, maxWidth = this.maxProductImageWidth, maxHeight = this.maxProductImageHeight, quality = this.productImageQuality) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Calculate new dimensions maintaining aspect ratio
+        let { width, height } = this.calculateDimensions(img.width, img.height, maxWidth, maxHeight);
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Enable image smoothing for better quality at smaller sizes
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG with specified quality
+        const compressedData = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedData);
+      };
+      img.onerror = () => resolve(null);
+      img.src = imageData;
+    });
+  }
+
+  // Calculate optimal dimensions maintaining aspect ratio
+  calculateDimensions(originalWidth, originalHeight, maxWidth, maxHeight) {
+    let width = originalWidth;
+    let height = originalHeight;
+    
+    // Scale down if larger than maximum dimensions
+    if (width > maxWidth) {
+      height = (height * maxWidth) / width;
+      width = maxWidth;
+    }
+    
+    if (height > maxHeight) {
+      width = (width * maxHeight) / height;
+      height = maxHeight;
+    }
+    
+    return { width: Math.round(width), height: Math.round(height) };
+  }
+
+  // Method to convert image file to base64 with compression (for product images only)
+  async fileToBase64(file, compressForProduct = false) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
+      reader.onload = async () => {
+        try {
+          if (compressForProduct) {
+            const compressed = await this.compressProductImage(reader.result);
+            resolve(compressed || reader.result);
+          } else {
+            resolve(reader.result); // No compression for format images
+          }
+        } catch (error) {
+          resolve(reader.result); // Fallback to original if compression fails
+        }
+      };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   }
 
-  // Method to load image from URL
-  async loadImageFromUrl(url) {
+  // Method to load image from URL (NO compression for format image, compression for product images)
+  async loadImageFromUrl(url, isProductImage = false) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL());
+      img.onload = async () => {
+        try {
+          if (isProductImage) {
+            // Compress product images for table icons
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate compressed dimensions for product images
+            const { width, height } = this.calculateDimensions(
+              img.width, 
+              img.height, 
+              this.maxProductImageWidth, 
+              this.maxProductImageHeight
+            );
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Enable high-quality image smoothing
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Use JPEG with compression for product images
+            const compressedData = canvas.toDataURL('image/jpeg', this.productImageQuality);
+            resolve(compressedData);
+          } else {
+            // For format/background images, convert to base64 without compression
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            ctx.drawImage(img, 0, 0);
+            
+            // Use original quality PNG/JPEG
+            const imageData = canvas.toDataURL('image/jpeg', 1.0); // Maximum quality
+            resolve(imageData);
+          }
+        } catch (error) {
+          reject(error);
+        }
       };
       img.onerror = reject;
       img.src = url;
@@ -96,24 +207,22 @@ class PDFGenerator {
 
   async addBackgroundFormat() {
     try {
-      // Use absolute path for the background image to ensure compatibility on mobile and desktop
+      // Use absolute path for the background image
       const formatImagePath = '/format.jpg';
-      // Alternative paths you might use:
-      // const formatImagePath = '/images/purchase-order-format.png';
-      // const formatImagePath = 'https://your-domain.com/purchase-order-format.png';
       
       let formatImageData;
       
       try {
-        formatImageData = await this.loadImageFromUrl(formatImagePath);
+        // Load format image WITHOUT compression to maintain quality
+        formatImageData = await this.loadImageFromUrl(formatImagePath, false);
       } catch (imageError) {
         console.warn('Could not load format image from:', formatImagePath);
         throw imageError;
       }
 
-      // Add the format image as full-page background
+      // Add the format image as full-page background (original quality)
       if (formatImageData) {
-        this.doc.addImage(formatImageData, 'PNG', 0, 0, this.pageWidth, this.pageHeight);
+        this.doc.addImage(formatImageData, 'JPEG', 0, 0, this.pageWidth, this.pageHeight);
       } else {
         throw new Error('No format image data');
       }
@@ -192,20 +301,20 @@ class PDFGenerator {
       customerY += 6;
     });
 
-    // Order details (right side)    this.doc.setFont('helvetica', 'normal');
+    // Order details (right side)
+    this.doc.setFont('helvetica', 'normal');
     this.doc.setFontSize(10);
     
     const orderNumber = orderData.id || Math.floor(Math.random() * 9999).toString().padStart(4, '0');
-
-    // Use transportName from orderData, fallback to transportData?.name, then dispatchData?.transportName, then 'N/A'
     const transportAgency = (orderData.transportName || transportData?.name || dispatchData?.transportName || 'N/A').toUpperCase();
+    const deliveryTime = orderData.delivery_time || '10-15 DAYS';
 
     const orderDetails = [
       orderNumber,
       this.formatDate(orderData.created_at),
       (orderData.delivery_location || orderData.city || 'N/A').toUpperCase(),
       transportAgency,
-      '10-15 DAYS'
+      deliveryTime
     ];
 
     let detailY = startY;
@@ -215,18 +324,19 @@ class PDFGenerator {
     });
   }
 
-  overlayItemsTable(dispatchedItems) {
+  async overlayItemsTable(dispatchedItems, products = []) {
     // Table content positioning based on your format
-    const tableStartY = 140; // Adjust based on your format
+    const tableStartY = 140;
     const rowHeight = 8;
     
     // Column positions matching your format
     const colPositions = {
-      sr: 25,        // SR column
-      particulars: 70, // PARTICULARS column  
-      qty: 120,      // QTY column
-      rate: 152,     // RATE column
-      amount: 182   // AMOUNT column
+      sr: 25,
+      image: 40,
+      particulars: 70,
+      qty: 120,
+      rate: 152,
+      amount: 182
     };
 
     // Table content
@@ -247,34 +357,69 @@ class PDFGenerator {
       }
     }
 
-    // Ensure items is an array
     if (!Array.isArray(items)) {
       console.warn('Dispatched items is not an array:', items);
       items = [];
     }
     
-    items.forEach((item, index) => {
+    // Cache for compressed product images to avoid reprocessing
+    const productImageCache = new Map();
+    
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+      
       // SR
       this.doc.text((index + 1).toString(), colPositions.sr, rowY, { align: 'center' });
       
-      // Particulars - Use productName from database
+      // Product Image - Compressed and cached (ONLY product images are compressed)
+      try {
+        const product = products.find(p => p.id === item.productId || p.name === item.productName);
+        if (product && product.image) {
+          let productImageData;
+          
+          // Check cache first
+          if (productImageCache.has(product.image)) {
+            productImageData = productImageCache.get(product.image);
+          } else {
+            try {
+              // Load and compress product image (small size for table) - THIS is compressed
+              productImageData = await this.loadImageFromUrl(product.image, true);
+              if (productImageData) {
+                // Cache the compressed image
+                productImageCache.set(product.image, productImageData);
+              }
+            } catch (imageError) {
+              console.warn('Could not load product image:', product.image, imageError);
+            }
+          }
+          
+          if (productImageData) {
+            // Add small product image icon (6x6mm)
+            this.doc.addImage(productImageData, 'JPEG', colPositions.image, rowY - 3, 6, 6);
+          }
+        }
+      } catch (error) {
+        console.warn('Error processing product image:', error);
+      }
+      
+      // Particulars
       const productName = item.productName || 'Unknown Product';
       this.doc.text(productName, colPositions.particulars, rowY);
       
-      // Quantity - Always use dispatchedQuantity for consistent format
+      // Quantity
       const quantity = item.dispatchedQuantity || item.quantity || 0;
       this.doc.text(quantity.toString(), colPositions.qty, rowY, { align: 'center' });
       
-      // Rate - Use price from database
+      // Rate
       const rate = item.price || 0;
       this.doc.text(rate.toFixed(2), colPositions.rate, rowY, { align: 'right' });
       
-      // Amount - Calculate from dispatched quantity and price for consistency
+      // Amount
       const amount = quantity * rate;
       this.doc.text(amount.toFixed(2), colPositions.amount, rowY, { align: 'right' });
     
       rowY += rowHeight;
-    });
+    }
   }
 
   overlayTotalSection(dispatchedItems) {
@@ -289,13 +434,12 @@ class PDFGenerator {
       }
     }
 
-    // Ensure items is an array
     if (!Array.isArray(items)) {
       console.warn('Dispatched items is not an array:', items);
       items = [];
     }
 
-    // Calculate grand total from totalPrice of all items
+    // Calculate grand total
     const grandTotal = items.reduce((sum, item) => {
       const quantity = item.dispatchedQuantity || item.quantity || 0;
       const rate = item.price || 0;
@@ -303,24 +447,18 @@ class PDFGenerator {
       return sum + itemTotal;
     }, 0);
     
-    // Amount in words position (based on your format)
+    // Amount in words
     this.doc.setFontSize(10);
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(0, 0, 0);
     const amountInWords = `Rs. ${this.numberToWords(grandTotal)} only`;
-    this.doc.text(amountInWords, 25, 226); // Adjust Y position
+    this.doc.text(amountInWords, 25, 226);
     
-    // Grand total amount in numbers (at the same Y coordinate as words)
-    this.doc.setFontSize(10);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(0, 0, 0); // Black text for better visibility
-    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`, 165, 226, { align: 'center' });
-    
-    // If there's a separate green background section for grand total, add it there too
+    // Grand total amount
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(255, 255, 255); // White text for green background
-    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN')}/-`, 165, 245, { align: 'center' }); // Adjust position for green background section
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.text(`₹ ${grandTotal.toLocaleString('en-IN')}/-`, 165, 226, { align: 'center' });
   }
 
   formatDate(dateString) {
@@ -335,7 +473,6 @@ class PDFGenerator {
     const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
     const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-    const thousands = ['', 'Thousand', 'Lakh', 'Crore'];
 
     function convertHundreds(n) {
       let result = '';
@@ -364,30 +501,25 @@ class PDFGenerator {
       if (num === 0) return '';
       
       let result = '';
-      let placeValue = 0;
       
-      // Handle crores
       if (num >= 10000000) {
         const crores = Math.floor(num / 10000000);
         result += convertHundreds(crores) + ' Crore ';
         num %= 10000000;
       }
       
-      // Handle lakhs
       if (num >= 100000) {
         const lakhs = Math.floor(num / 100000);
         result += convertHundreds(lakhs) + ' Lakh ';
         num %= 100000;
       }
       
-      // Handle thousands
       if (num >= 1000) {
         const thousands = Math.floor(num / 1000);
         result += convertHundreds(thousands) + ' Thousand ';
         num %= 1000;
       }
       
-      // Handle hundreds, tens, and units
       if (num > 0) {
         result += convertHundreds(num);
       }
@@ -395,7 +527,6 @@ class PDFGenerator {
       return result.trim();
     }
 
-    // Handle decimal part
     const integerPart = Math.floor(num);
     const decimalPart = Math.round((num - integerPart) * 100);
     
@@ -410,7 +541,7 @@ class PDFGenerator {
 }
 
 // Export functions
-export const generateDispatchPDF = async (orderData, dispatchData, customerData = null, transportData = null) => {
+export const generateDispatchPDF = async (orderData, dispatchData, customerData = null, transportData = null, products = []) => {
   const pdfGenerator = new PDFGenerator();
 
   const customer = customerData || {
@@ -419,12 +550,11 @@ export const generateDispatchPDF = async (orderData, dispatchData, customerData 
     phone: orderData.phone_number
   };
 
-  // Use transportName from orderData if available
   const transport = transportData || {
     name: orderData.transportName || dispatchData.transportName || ''
   };
 
-  return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport);
+  return await pdfGenerator.generatePurchaseOrderPDF(orderData, dispatchData, customer, transport, products);
 };
 
 export default PDFGenerator;
