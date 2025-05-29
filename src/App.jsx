@@ -11,6 +11,7 @@ import TransportsPage from '@/pages/TransportsPage';
 import AnalyticsBoardPage from '@/pages/AnalyticsBoardPage';
 import { AppProvider, useAppContext } from '@/context/AppContext';
 import RegistrationPage from '@/pages/RegistrationPage';
+import PastOrders from '@/pages/PastOrders';
 // import { supabase } from '@/lib/supabaseClient';
 
 function MainApp() {
@@ -62,6 +63,7 @@ function MainApp() {
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/transports" element={<TransportsPage />} />
         <Route path="/analytics" element={<AnalyticsBoardPage />} />
+        <Route path="/past-orders" element={<PastOrders />} />
         {/* Redirect authenticated users away from auth pages */}
         <Route path="/login" element={<Navigate to="/" />} />
         <Route path="/register" element={<Navigate to="/" />} />
