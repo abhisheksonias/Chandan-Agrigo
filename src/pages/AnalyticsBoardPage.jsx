@@ -1066,15 +1066,17 @@ const AnalyticsBoardPage = () => {
                     </Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <select
                         id="customer-search"
-                        placeholder="Search by customer name..."
                         value={searchFilters.customerName}
-                        onChange={(e) =>
-                          handleFilterChange("customerName", e.target.value)
-                        }
-                        className="pl-9"
-                      />
+                        onChange={(e) => handleFilterChange("customerName", e.target.value)}
+                        className="pl-9 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">All Customers</option>
+                        {[...new Set(orders.map(order => order.customer_name).filter(Boolean))].map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1109,15 +1111,17 @@ const AnalyticsBoardPage = () => {
                     </Label>
                     <div className="relative">
                       <PackageCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <select
                         id="product-search"
-                        placeholder="Search by product name..."
                         value={searchFilters.productName}
-                        onChange={(e) =>
-                          handleFilterChange("productName", e.target.value)
-                        }
-                        className="pl-9"
-                      />
+                        onChange={(e) => handleFilterChange("productName", e.target.value)}
+                        className="pl-9 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">All Products</option>
+                        {[...new Set(orders.flatMap(order => (order.items || []).map(item => item.productName || item.product_name)).filter(Boolean))].map((product) => (
+                          <option key={product} value={product}>{product}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
