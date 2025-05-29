@@ -118,8 +118,23 @@ const AnalyticsBoardPage = () => {
     });
   }, [orders, searchFilters]);
 
-  const getOrdersByStatus = (status) =>
-    filteredOrders.filter((order) => order.status === status);
+  const getOrdersByStatus = (status) => {
+    if (status === "Full Dispatch") {
+      // Only show current month full dispatch orders
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      return filteredOrders.filter((order) => {
+        if (order.status !== "Full Dispatch") return false;
+        const orderDate = new Date(order.created_at);
+        return (
+          orderDate.getMonth() === currentMonth &&
+          orderDate.getFullYear() === currentYear
+        );
+      });
+    }
+    return filteredOrders.filter((order) => order.status === status);
+  };
   const getDispatchedOrders = () =>
     filteredOrders.filter(
       (order) =>
