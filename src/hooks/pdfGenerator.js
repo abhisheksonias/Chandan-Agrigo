@@ -410,13 +410,13 @@ class PDFGenerator {
       const quantity = item.dispatchedQuantity || item.quantity || 0;
       this.doc.text(quantity.toString(), colPositions.qty, rowY, { align: 'center' });
       
-      // Rate - Add rupee symbol
+      // Rate - Add rupee symbol with comma formatting
       const rate = item.price || 0;
-      this.doc.text(`Rs. ${rate.toFixed(2)}`, colPositions.rate, rowY, { align: 'right' });
+      this.doc.text(`Rs. ${rate.toLocaleString('en-IN')}`, colPositions.rate, rowY, { align: 'right' });
       
-      // Amount - Add rupee symbol
+      // Amount - Add rupee symbol with comma formatting
       const amount = quantity * rate;
-      this.doc.text(`Rs. ${amount.toFixed(2)}`, colPositions.amount, rowY, { align: 'right' });
+      this.doc.text(`Rs. ${amount.toLocaleString('en-IN')}`, colPositions.amount, rowY, { align: 'right' });
     
       rowY += rowHeight;
     }
@@ -483,10 +483,10 @@ class PDFGenerator {
     this.doc.setTextColor(0, 0, 0);
     
     const amountInWords = `Rs. ${this.numberToWords(grandTotal)} only`;
-    const maxWidth = 120; // Maximum width for the amount in words area
+    const maxWidth = 80; // Maximum width for the amount in words area
     const wrappedLines = this.wrapText(amountInWords, maxWidth);
     
-    let startY = 226;
+    let startY = 223;
     const lineHeight = 4; // Space between lines
     
     // Display wrapped lines
