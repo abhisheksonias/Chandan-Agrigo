@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart3,
   CheckCircle,
-  
+
   Clock,
 
   DownloadCloud,
@@ -445,8 +445,7 @@ const AnalyticsBoardPage = () => {
           productSummary = order.items
             .map(
               (item) =>
-                `${item.productName || item.product_name || "Unknown Product"} x${
-                  item.quantity || 0
+                `${item.productName || item.product_name || "Unknown Product"} x${item.quantity || 0
                 }`
             )
             .join(", ");
@@ -711,33 +710,33 @@ const AnalyticsBoardPage = () => {
 
   return (
     <div className="space-y-6">      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Board</h1>
-          <p className="text-muted-foreground text-sm">
-            Track and manage your orders through different stages.
-          </p>
-        </div>
-        <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
-          <Button
-            onClick={exportToExcel}
-            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
-            variant="outline"
-            size="sm"
-          >
-            <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>Export to Excel</span>
-          </Button>
-          <Button
-            onClick={handleDeleteAllOrders}
-            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
-            variant="destructive"
-            size="sm"
-          >
-            <X className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>Delete All</span>
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Board</h1>
+        <p className="text-muted-foreground text-sm">
+          Track and manage your orders through different stages.
+        </p>
       </div>
+      <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
+        <Button
+          onClick={exportToExcel}
+          className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
+          variant="outline"
+          size="sm"
+        >
+          <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Export to Excel</span>
+        </Button>
+        <Button
+          onClick={handleDeleteAllOrders}
+          className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
+          variant="destructive"
+          size="sm"
+        >
+          <X className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Delete All</span>
+        </Button>
+      </div>
+    </div>
 
       {/* Search and Filter Section */}
       <Card>
@@ -934,24 +933,24 @@ const AnalyticsBoardPage = () => {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">        <TabsList className="grid w-full grid-cols-5 gap-1 h-auto p-1 overflow-x-auto scrollbar-hide">
-          {tabsConfig.map((tab) => (
-            <TabsTrigger
-              key={tab.value}
-              value={tab.value}
-              className="flex items-center justify-center gap-1 text-xs md:text-sm px-2 py-1.5 min-h-[2.25rem] whitespace-nowrap"
-            >
-              <tab.icon className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="hidden xs:inline truncate">
-                  {tab.label.split(" ")[0]}
-                </span>
-                <span className="text-xs opacity-75 whitespace-nowrap">
-                  ({tab.data.length})
-                </span>
-              </div>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {tabsConfig.map((tab) => (
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            className="flex items-center justify-center gap-1 text-xs md:text-sm px-2 py-1.5 min-h-[2.25rem] whitespace-nowrap"
+          >
+            <tab.icon className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="hidden xs:inline truncate">
+                {tab.label.split(" ")[0]}
+              </span>
+              <span className="text-xs opacity-75 whitespace-nowrap">
+                ({tab.data.length})
+              </span>
+            </div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
         {tabsConfig.map((tab) => (
           <TabsContent
@@ -968,7 +967,7 @@ const AnalyticsBoardPage = () => {
                     <tab.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
                     <span className="truncate">{tab.label}</span>
                   </CardTitle>
-                  
+
                   <CardDescription className="m-0 text-xs">
                     <div className="flex items-center gap-1">
                       <span className="font-medium">{tab.data.length}</span> orders
@@ -1009,10 +1008,27 @@ const AnalyticsBoardPage = () => {
                             getTransportNames={getTransportNames}
                             getProductStock={getProductStock}
                             formatDate={formatDate}
-                            generateDispatchPDF={generateDispatchPDF}
+                            generateDispatchPDF={(orderData, dispatchData) =>
+                              generateDispatchPDF(
+                                orderData,
+                                dispatchData,
+                                {
+                                  name: orderData.customer_name,
+                                  city: orderData.city,
+                                  phone: orderData.phone_number
+                                },
+                                {
+                                  name: orderData.transportName || dispatchData?.transportName || 'N/A'
+                                },
+                                products // Pass the products array for images
+                              )
+                            }
+                            products={products}
+                            deliveryTime={order.delivery_time}
                           />
                         );
                       })}
+
                     </div>
                   </AnimatePresence>
                 ) : (
