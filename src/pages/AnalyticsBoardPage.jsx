@@ -56,7 +56,7 @@ const AnalyticsBoardPage = () => {
     deleteOrder, // <-- Add deleteOrder from context
   } = useAppContext();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("total_orders");
+  const [activeTab, setActiveTab] = useState("unconfirmed_orders");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isEditOrderDialogOpen, setIsEditOrderDialogOpen] = useState(false);
   const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
@@ -533,12 +533,6 @@ const AnalyticsBoardPage = () => {
   };
 
   const tabsConfig = [
-    {
-      value: "total_orders",
-      label: "Total Orders",
-      icon: BarChart3,
-      data: filteredOrders,
-    },
     {
       value: "unconfirmed_orders",
       label: "Unconfirmed Orders",
