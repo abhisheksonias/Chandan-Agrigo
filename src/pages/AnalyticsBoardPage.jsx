@@ -119,12 +119,14 @@ const AnalyticsBoardPage = () => {
   }, [orders, searchFilters]);
 
   const getOrdersByStatus = (status) => {
+    let ordersToReturn;
+    
     if (status === "Full Dispatch") {
       // Only show current month full dispatch orders
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
-      return filteredOrders.filter((order) => {
+      ordersToReturn = filteredOrders.filter((order) => {
         if (order.status !== "Full Dispatch") return false;
         const orderDate = new Date(order.created_at);
         return (
@@ -132,8 +134,16 @@ const AnalyticsBoardPage = () => {
           orderDate.getFullYear() === currentYear
         );
       });
+    } else {
+      ordersToReturn = filteredOrders.filter((order) => order.status === status);
     }
-    return filteredOrders.filter((order) => order.status === status);
+    
+    // Sort by creation time in ascending order (oldest first)
+    return ordersToReturn.sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return dateA - dateB;
+    });
   };
   const getDispatchedOrders = () =>
     filteredOrders.filter(
