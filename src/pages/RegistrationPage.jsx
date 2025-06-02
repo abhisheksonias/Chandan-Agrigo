@@ -135,11 +135,11 @@ const RegistrationPage = () => {
       >
         <Card className="w-full max-w-md shadow-2xl glass-card">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/20 w-fit">
-              <Building className="h-10 w-10 text-primary" />
+            <div className="mx-auto mb-4 p-3 rounded-full bg-white w-fit">
+              <img src="/CAPL_Logo.png" alt="Chandan Agrico Logo" className="h-10 w-10 object-contain" />
             </div>
             <CardTitle className="text-3xl font-bold">Chandan Agrico</CardTitle>
-            <CardDescription>Create your account</CardDescription>
+            <CardDescription className="text-white">Create your account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -255,7 +255,7 @@ const RegistrationPage = () => {
 
             {/* Login Link */}
             <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white ">
                 Already have an account?{' '}
                 <Link 
                   to="/login" 
@@ -266,7 +266,7 @@ const RegistrationPage = () => {
               </p>
             </div>
           </CardContent>
-          <CardFooter className="text-center text-xs text-muted-foreground">
+          <CardFooter className="text-center text-xs text-white">
             <p>&copy; {new Date().getFullYear()} Chandan Agrico. All rights reserved.</p>
           </CardFooter>
         </Card>

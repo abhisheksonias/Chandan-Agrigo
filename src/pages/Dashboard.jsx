@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Users, Package, Truck, BarChart3, Building, History } from 'lucide-react';
+import { ShoppingCart, Users, Package, Truck, BarChart3, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const dashboardItems = [
@@ -47,7 +47,7 @@ const Dashboard = () => {
 				transition={{ duration: 0.5 }}
 				className="flex flex-col items-center text-center p-6 rounded-xl bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
 			>
-				<Building className="h-16 w-16 mb-4" />
+				<img src="/CAPL_Logo.png" alt="Chandan Agrico Logo" className="h-16 w-16 mb-4 object-contain" />
 				<h1 className="text-4xl font-bold tracking-tight">Welcome to Chandan Agrico</h1>
 				<p className="text-lg mt-2 max-w-2xl">
 					Your central hub for managing orders, customers, products, and transport for your agriculture business.
