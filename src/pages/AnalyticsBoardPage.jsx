@@ -138,11 +138,11 @@ const AnalyticsBoardPage = () => {
       ordersToReturn = filteredOrders.filter((order) => order.status === status);
     }
     
-    // Sort by creation time in ascending order (oldest first)
+    // Sort by creation time in descending order (latest first)
     return ordersToReturn.sort((a, b) => {
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
-      return dateA - dateB;
+      return dateB - dateA;
     });
   };
   const getDispatchedOrders = () =>

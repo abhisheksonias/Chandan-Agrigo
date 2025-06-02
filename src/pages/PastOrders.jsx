@@ -140,23 +140,25 @@ const PastOrders = () => {
                 {expandedMonths[monthKey] && (
                   <CardContent>
                     <div className="space-y-2">
-                      {orders.map((order) => {
-                        const { totalPrice, productSummary } = getOrderCardData(order);
-                        return (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            isExpanded={expandedOrderIds.has(order.id)}
-                            onToggleExpand={toggleOrderExpand}
-                            totalPrice={totalPrice}
-                            productSummary={productSummary}
-                            getTransportNames={getTransportNames}
-                            getProductStock={getProductStock}
-                            formatDate={formatDate}
-                            generateDispatchPDF={generateDispatchPDF}
-                          />
-                        );
-                      })}
+                      {[...orders]
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .map((order) => {
+                          const { totalPrice, productSummary } = getOrderCardData(order);
+                          return (
+                            <OrderCard
+                              key={order.id}
+                              order={order}
+                              isExpanded={expandedOrderIds.has(order.id)}
+                              onToggleExpand={toggleOrderExpand}
+                              totalPrice={totalPrice}
+                              productSummary={productSummary}
+                              getTransportNames={getTransportNames}
+                              getProductStock={getProductStock}
+                              formatDate={formatDate}
+                              generateDispatchPDF={generateDispatchPDF}
+                            />
+                          );
+                        })}
                     </div>
                   </CardContent>
                 )}
