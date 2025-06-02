@@ -47,7 +47,9 @@ const Dashboard = () => {
 				transition={{ duration: 0.5 }}
 				className="flex flex-col items-center text-center p-6 rounded-xl bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
 			>
+				<div className='bg-[#fff8ef] rounded-2xl px-3 pt-2'>
 				<img src="/CAPL_Logo.png" alt="Chandan Agrico Logo" className="h-16 w-16 mb-4 object-contain" />
+				</div>
 				<h1 className="text-4xl font-bold tracking-tight">Welcome to Chandan Agrico</h1>
 				<p className="text-lg mt-2 max-w-2xl">
 					Your central hub for managing orders, customers, products, and transport for your agriculture business.
