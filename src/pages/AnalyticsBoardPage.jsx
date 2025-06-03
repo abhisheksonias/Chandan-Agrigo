@@ -20,6 +20,7 @@ import {
   Calendar,
   X,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { useAppContext } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -698,24 +699,40 @@ const AnalyticsBoardPage = () => {
       icon: Clock,
       data: getOrdersByStatus("Unconfirmed"),
       actions: (order) => (
-        <>
+        <>          <Button
+            size="sm"
+            style={{ backgroundColor: "#25D366", color: "white" }}
+            className="hover:bg-green-500 focus:ring-green-600 mr-1"
+            asChild
+            title="Contact on WhatsApp"
+          >
+            <a
+              href={order.phone_number ? 
+                `https://wa.me/91${order.phone_number}?text=${encodeURIComponent("Thank you for shopping with us. Please find your Purchase Order here.")}` : 
+                "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => { if (!order.phone_number) e.preventDefault(); }}
+            >
+              <FaWhatsapp className="mr-2 h-4 w-4" />Send PO</a>
+          </Button>
           <Button size="sm" onClick={() => handleConfirmOrder(order.id)}>
             <CheckCircle className="mr-2 h-4 w-4" />
-            Confirm Order
+            Confirm
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => handleOpenEditOrderDialog(order)}
           >
-            <Edit className="mr-2 h-4 w-4" /> Edit Details
+            <Edit className="mr-2 h-4 w-4" />Edit
           </Button>
           <Button
             size="sm"
             variant="destructive"
             onClick={() => handleDeleteOrder(order.id)}
           >
-            <X className="mr-2 h-4 w-4" /> Delete
+            <X className="mr-2 h-4 w-4" />Delete
           </Button>
         </>
       ),
