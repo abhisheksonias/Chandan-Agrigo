@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import { supabase } from '@/lib/supabaseClient'; 
 import { UploadCloud } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 const ProductForm = ({ product, onSubmit, onCancel }) => {
   const { toast } = useToast();
@@ -57,24 +58,36 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
   };
 
   const uploadImage = async () => {
-    if (!imageFile) return formData.image; 
+    if (!imageFile) return formData.image;
     setIsUploading(true);
-    const fileName = `${crypto.randomUUID()}-${imageFile.name}`;
-    const { data, error } = await supabase.storage
-      .from('productimages')
-      .upload(fileName, imageFile, {
-        cacheControl: '3600',
-        upsert: false,
+    try {
+      // Compress the image before upload
+      const compressedFile = await imageCompression(imageFile, {
+        maxSizeMB: 0.3, // Target max size in MB (adjust as needed)
+        maxWidthOrHeight: 800, // Resize to max 800px (adjust as needed)
+        useWebWorker: true,
       });
-    setIsUploading(false);
+      const fileName = `${crypto.randomUUID()}-${imageFile.name}`;
+      const { data, error } = await supabase.storage
+        .from('productimages')
+        .upload(fileName, compressedFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+      setIsUploading(false);
 
-    if (error) {
-      toast({ title: 'Image Upload Error', description: error.message, variant: 'destructive' });
+      if (error) {
+        toast({ title: 'Image Upload Error', description: error.message, variant: 'destructive' });
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('productimages').getPublicUrl(data.path);
+      return publicUrl;
+    } catch (err) {
+      setIsUploading(false);
+      toast({ title: 'Image Compression Error', description: err.message, variant: 'destructive' });
       return null;
     }
-
-    const { data: { publicUrl } } = supabase.storage.from('productimages').getPublicUrl(data.path);
-    return publicUrl;
   };
 
   const handleSubmit = async (e) => {
