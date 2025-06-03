@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Users, Package, Truck, BarChart3, History } from 'lucide-react';
+import { ShoppingCart, Users, Package, Truck, BarChart3, History, LineChart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const dashboardItems = [
@@ -10,6 +10,7 @@ const dashboardItems = [
 	{ title: 'Add Product', icon: Package, path: '/products', description: 'Manage product inventory' },
 	{ title: 'Add Transport', icon: Truck, path: '/transports', description: 'Manage transport providers' },
 	{ title: 'Analytics Board', icon: BarChart3, path: '/analytics', description: 'View sales and order analytics' },
+	{ title: 'Sales Analytics', icon: LineChart, path: '/sales-analytics', description: 'Visual charts and reports for sales data' },
 	{ title: 'Past Orders', icon: History, path: '/past-orders', description: 'View fully dispatched past orders' },
 ];
 

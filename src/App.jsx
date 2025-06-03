@@ -12,6 +12,7 @@ import AnalyticsBoardPage from '@/pages/AnalyticsBoardPage';
 import { AppProvider, useAppContext } from '@/context/AppContext';
 import RegistrationPage from '@/pages/RegistrationPage';
 import PastOrders from '@/pages/PastOrders';
+import SalesAnalyticsPage from '@/pages/SalesAnalyticsPage';
 // import { supabase } from '@/lib/supabaseClient';
 
 function MainApp() {
@@ -61,9 +62,9 @@ function MainApp() {
         <Route path="/add-order" element={<AddOrderPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/products" element={<ProductsPage />} />
-        <Route path="/transports" element={<TransportsPage />} />
-        <Route path="/analytics" element={<AnalyticsBoardPage />} />
+        <Route path="/transports" element={<TransportsPage />} />        <Route path="/analytics" element={<AnalyticsBoardPage />} />
         <Route path="/past-orders" element={<PastOrders />} />
+        <Route path="/sales-analytics" element={<SalesAnalyticsPage />} />
         {/* Redirect authenticated users away from auth pages */}
         <Route path="/login" element={<Navigate to="/" />} />
         <Route path="/register" element={<Navigate to="/" />} />
