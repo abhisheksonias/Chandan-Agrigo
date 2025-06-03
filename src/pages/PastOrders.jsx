@@ -2,10 +2,15 @@ import React, { useState, useMemo } from "react";
 import { useAppContext } from "@/context/AppContext";
 import OrderCard from "@/components/OrderCard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { DownloadCloud } from "lucide-react";
 import { generateDispatchPDF } from "@/hooks/pdfGenerator";
+import * as XLSX from "xlsx";
+import { useToast } from "@/components/ui/use-toast";
 
 const PastOrders = () => {
   const { orders, products } = useAppContext();
+  const { toast } = useToast();
   const [expandedOrderIds, setExpandedOrderIds] = useState(new Set());
   const [expandedMonths, setExpandedMonths] = useState({}); // Track expanded/collapsed months
 
@@ -89,8 +94,7 @@ const PastOrders = () => {
   const getProductStock = (productId) => {
     const product = products?.find((p) => p.id === productId);
     return product ? product.stock || 0 : 0;
-  };
-  const formatDate = (dateString) => {
+  };  const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -99,6 +103,237 @@ const PastOrders = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+  
+  // Function to export monthly orders data to Excel
+  const exportMonthToExcel = (monthKey, monthOrders) => {
+    try {
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // Format orders data for export - each product will be a separate row
+      const formattedOrdersData = [];
+
+      // Sort orders by creation time in descending order (latest first)
+      const sortedOrders = [...monthOrders].sort((a, b) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateB - dateA;
+      });
+
+      // Process each order
+      sortedOrders.forEach((order) => {
+        // Create a basic order info object with common fields
+        const baseOrderInfo = {
+          "Order ID": order.id,
+          "Customer Name": order.customer_name || "N/A",
+          "Phone": order.phone_number || "N/A",
+          "City": order.city || "N/A",
+          "Delivery Location": order.delivery_location || "N/A",
+          "Status": order.status || "Unknown",
+          "Order Date": formatDate(order.created_at),
+          "Added By": order.added_by || "N/A",
+        };
+
+        // Handle transport info - check both transportName and delivered_by fields
+        let transportName = "N/A";
+        if (order.transportName) {
+          transportName = order.transportName;
+        } else if (
+          order.delivered_by &&
+          Array.isArray(order.delivered_by) &&
+          order.delivered_by.length > 0
+        ) {
+          transportName = getTransportNames(order.delivered_by).join(", ");
+        }
+        baseOrderInfo["Transport"] = transportName;
+
+        // Calculate order total price
+        let totalOrderPrice = 0;
+        if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+          totalOrderPrice = order.items.reduce((sum, item) => {
+            const quantity = Number(item.quantity) || 0;
+            const price = Number(item.price) || 0;
+            return sum + quantity * price;
+          }, 0);
+        }
+          // If order has no items, add a single row with the order info
+        if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+          formattedOrdersData.push({
+            ...baseOrderInfo,
+            "Product Name": "No items",
+            "Quantity": "",
+            "Unit": "",
+            "Price Per Unit": "",
+            "Product Total": "",
+            "Order Total": totalOrderPrice.toFixed(2),
+          });
+          
+          // Add a blank row after this order for better readability
+          formattedOrdersData.push({
+            "Order ID": "",
+            "Customer Name": "",
+            "Phone": "",
+            "City": "",
+            "Delivery Location": "",
+            "Status": "",
+            "Order Date": "",
+            "Added By": "",
+            "Transport": "",
+            "Product Name": "",
+            "Quantity": "",
+            "Unit": "",
+            "Price Per Unit": "",
+            "Product Total": "",
+            "Order Total": "",
+          });
+        } else {// Add each product as a separate row
+          order.items.forEach((item, index) => {
+            const productName = item.productName || item.product_name || "Unknown Product";
+            const quantity = Number(item.quantity) || 0;
+            const price = Number(item.price) || 0;
+            const productTotal = quantity * price;
+            const unit = item.unit || "units";
+            
+            // For first product row, include all order details
+            // For subsequent rows, leave order details blank to avoid repetition
+            const rowData = index === 0 
+              ? {
+                  ...baseOrderInfo,
+                  "Product Name": productName,
+                  "Quantity": quantity,
+                  "Unit": unit,
+                  "Price Per Unit": price.toFixed(2),
+                  "Product Total": productTotal.toFixed(2),
+                  "Order Total": totalOrderPrice.toFixed(2),
+                }
+              : {
+                  "Order ID": order.id, // Keep Order ID on all rows for reference
+                  "Customer Name": "",
+                  "Phone": "",
+                  "City": "",
+                  "Delivery Location": "",
+                  "Status": "",
+                  "Order Date": "",
+                  "Added By": "",
+                  "Transport": "",
+                  "Product Name": productName,
+                  "Quantity": quantity,
+                  "Unit": unit,
+                  "Price Per Unit": price.toFixed(2),
+                  "Product Total": productTotal.toFixed(2),
+                  "Order Total": "",
+                };
+            
+            formattedOrdersData.push(rowData);
+          });
+            // Add a summary row for the order if there are multiple products
+          if (order.items.length > 1) {
+            formattedOrdersData.push({
+              "Order ID": order.id,
+              "Customer Name": "",
+              "Phone": "",
+              "City": "",
+              "Delivery Location": "",
+              "Status": "",
+              "Order Date": "",
+              "Added By": "",
+              "Transport": "",
+              "Product Name": `--- Order Summary (${order.items.length} items) ---`,
+              "Quantity": order.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+              "Unit": "total",
+              "Price Per Unit": "",
+              "Product Total": "",
+              "Order Total": totalOrderPrice.toFixed(2),
+            });
+            
+            // Add a blank row after each order for better readability
+            formattedOrdersData.push({
+              "Order ID": "",
+              "Customer Name": "",
+              "Phone": "",
+              "City": "",
+              "Delivery Location": "",
+              "Status": "",
+              "Order Date": "",
+              "Added By": "",
+              "Transport": "",
+              "Product Name": "",
+              "Quantity": "",
+              "Unit": "",
+              "Price Per Unit": "",
+              "Product Total": "",
+              "Order Total": "",
+            });
+          } else {
+            // Add a blank row after single product orders too
+            formattedOrdersData.push({
+              "Order ID": "",
+              "Customer Name": "",
+              "Phone": "",
+              "City": "",
+              "Delivery Location": "",
+              "Status": "",
+              "Order Date": "",
+              "Added By": "",
+              "Transport": "",
+              "Product Name": "",
+              "Quantity": "",
+              "Unit": "",
+              "Price Per Unit": "",
+              "Product Total": "",
+              "Order Total": "",
+            });
+          }
+        }
+      });
+      
+      // Create worksheet from data
+      const ws = XLSX.utils.json_to_sheet(formattedOrdersData);
+      
+      // Add headers styling (make them bold)
+      const headerStyle = {
+        font: { bold: true },
+        alignment: { horizontal: 'center' }
+      };
+      
+      // Get the headers range (A1:Q1)
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = headerStyle;
+      }
+      
+      // Auto-size columns (optional enhancement)
+      const colWidths = {};
+      formattedOrdersData.forEach(row => {
+        Object.keys(row).forEach(key => {
+          const value = String(row[key] || "");
+          colWidths[key] = Math.max(colWidths[key] || 0, value.length);
+        });
+      });
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, monthKey);
+
+      // Generate Excel file
+      const fileName = `Chandan_Agrico_Orders_${monthKey.replace(" ", "_")}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      // Show success toast
+      toast({
+        title: "Export Successful",
+        description: `${monthOrders.length} orders from ${monthKey} exported to Excel.`,
+      });
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast({
+        title: "Export Failed",
+        description: "An error occurred while exporting to Excel.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -124,18 +359,33 @@ const PastOrders = () => {
               }
               return sum;
             }, 0);
-            return (
-              <Card key={monthKey}>
+            return (              <Card key={monthKey}>
                 <CardHeader
-                  className="cursor-pointer flex flex-row items-center justify-between"
-                  onClick={() => toggleMonthExpand(monthKey)}
+                  className="flex flex-row items-center justify-between"
                 >
-                  <CardTitle className="flex items-center gap-2">
-                    {monthKey}
-                    <span className="ml-2 text-xs text-muted-foreground">({orders.length} order{orders.length !== 1 ? 's' : ''})</span>
-                    <span className="ml-4 text-sm font-semibold text-green-700">₹{monthTotal.toFixed(2)}</span>
-                  </CardTitle>
-                  <span className="text-lg">{expandedMonths[monthKey] ? '▼' : '▶'}</span>
+                  <div 
+                    className="flex-grow cursor-pointer flex items-center"
+                    onClick={() => toggleMonthExpand(monthKey)}
+                  >
+                    <CardTitle className="flex items-center gap-2">
+                      {monthKey}
+                      <span className="ml-2 text-xs text-muted-foreground">({orders.length} order{orders.length !== 1 ? 's' : ''})</span>
+                      <span className="ml-4 text-sm font-semibold text-green-700">₹{monthTotal.toFixed(2)}</span>
+                    </CardTitle>
+                    <span className="text-lg ml-3">{expandedMonths[monthKey] ? '▼' : '▶'}</span>
+                  </div>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportMonthToExcel(monthKey, orders);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center justify-center gap-1.5 text-xs"
+                  >
+                    <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span>Export to Excel</span>
+                  </Button>
                 </CardHeader>
                 {expandedMonths[monthKey] && (
                   <CardContent>
