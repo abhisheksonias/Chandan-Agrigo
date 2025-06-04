@@ -1,6 +1,6 @@
 {
   "name": "Chandan Agrico Products",
-  "short_name": "Chandan Agrico",
+  "short_name": "Trishul 360",
   "description": "Inventory and Order Management System for Chandan Agrico Products LLP.",
   "start_url": ".",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/CAPL_Logo.png",
+      "src": "/trishul.jpg",  
       "sizes": "192x192",
       "type": "image/png"
     },
