@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Trash2, UserPlus, ChevronDown } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,9 @@ const AddOrderPage = () => {
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState(""); // New state for transport
   const [deliveryTime, setDeliveryTime] = useState(""); // New state for delivery time
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const inputRef = React.useRef(null);
+  const comboboxRef = React.useRef(null);
 
   const filteredCustomers = customers.filter(
     (customer) =>
@@ -287,6 +290,23 @@ const AddOrderPage = () => {
     }
   };
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!customerDropdownOpen) return;
+    function handleClickOutside(event) {
+      if (
+        comboboxRef.current &&
+        !comboboxRef.current.contains(event.target)
+      ) {
+        setCustomerDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [customerDropdownOpen]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -306,39 +326,60 @@ const AddOrderPage = () => {
             <section className="space-y-4 p-4 border rounded-lg">
               <h2 className="text-lg font-semibold">Customer Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="customer-search">
-                    Select Existing Customer
-                  </Label>
-                  <Select
-                    value={selectedCustomerId}
-                    onValueChange={setSelectedCustomerId}
-                  >
-                    <SelectTrigger id="customer-search">
-                      <SelectValue placeholder="Search or select a customer..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="p-2">
-                        <Input
-                          placeholder="Search customers..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="mb-2"
-                        />
-                      </div>                      {filteredCustomers
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.name} ({customer.city})
-                          </SelectItem>
-                        ))}
-                      {filteredCustomers.length === 0 && (
-                        <p className="p-2 text-sm text-muted-foreground">
-                          No customers found.
-                        </p>
-                      )}
-                    </SelectContent>
-                  </Select>
+                <div className="relative" ref={comboboxRef}>
+                  <Label htmlFor="customer-combobox">Select Existing Customer</Label>
+                  <div className="relative">
+                    <Input
+                      id="customer-combobox"
+                      ref={inputRef}
+                      placeholder="Search or select a customer..."
+                      value={selectedCustomerId ? (customers.find(c => c.id === selectedCustomerId)?.name + (customers.find(c => c.id === selectedCustomerId)?.city ? ` (${customers.find(c => c.id === selectedCustomerId)?.city})` : "")) : searchTerm}
+                      onChange={e => {
+                        setSearchTerm(e.target.value);
+                        setSelectedCustomerId("");
+                        setCustomerDropdownOpen(true);
+                      }}
+                      autoComplete="off"
+                      onFocus={() => setCustomerDropdownOpen(true)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-primary"
+                      onClick={e => {
+                        e.preventDefault();
+                        setCustomerDropdownOpen((open) => !open);
+                        inputRef.current && inputRef.current.focus();
+                      }}
+                    >
+                      <ChevronDown className="w-5 h-5" />
+                    </button>
+                    {customerDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto">
+                        {filteredCustomers.length > 0 ? (
+                          filteredCustomers
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((customer) => (
+                              <div
+                                key={customer.id}
+                                className={`px-4 py-2 cursor-pointer hover:bg-primary/10 ${selectedCustomerId === customer.id ? "bg-primary/20" : ""}`}
+                                onMouseDown={e => {
+                                  e.preventDefault();
+                                  setSelectedCustomerId(customer.id);
+                                  setSearchTerm("");
+                                  setCustomerDropdownOpen(false);
+                                }}
+                              >
+                                {customer.name} {customer.city ? `(${customer.city})` : ""}
+                              </div>
+                            ))
+                        ) : (
+                          <div className="px-4 py-2 text-sm text-muted-foreground">No customers found.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-end">
                   <Dialog
@@ -449,7 +490,8 @@ const AddOrderPage = () => {
                       className="text-gray-500 dark:text-gray-400"
                     >
                       Choose a transport service...
-                    </option>                    {transports &&
+                    </option>
+                    {transports &&
                       transports.length > 0 &&
                       [...transports]
                         .sort((a, b) => a.name.localeCompare(b.name))
