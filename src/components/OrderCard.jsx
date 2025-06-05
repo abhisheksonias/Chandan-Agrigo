@@ -144,10 +144,11 @@ const OrderCard = ({
               {(order.transportName || transportNames.length > 0) && (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Truck className="h-2.5 w-2.5" /> 
-                  <span className="truncate max-w-[80px]" title={order.transportName || transportNames.join(", ")}>
+                  <span title={order.transportName || transportNames.join(", ")}>
                     {order.transportName || transportNames.join(", ")}
                   </span>
                 </span>
+                
               )}
             </div>
             {order.phone_number && (
@@ -245,9 +246,13 @@ const OrderCard = ({
                       <span className="text-muted-foreground mr-1">Added By:</span>
                       <span>{order.added_by || "N/A"}</span>
                     </div>
-                    <div>
+                    {/* <div>
                       <span className="text-muted-foreground mr-1">Order Date:</span>
                       <span>{formatDate(order.created_at)}</span>
+                    </div> */}
+                    <div>
+                      <span className="text-muted-foreground mr-1">Update Date:</span>
+                      <span>{formatDate(order.updated_at)}</span>
                     </div>
                   </div>
                   {actions && (

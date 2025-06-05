@@ -204,7 +204,7 @@ const TransportsPage = () => {
                                     </span>
                                   </div>
                                   <p>Customer: {order.customer_name}</p>
-                                  <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                                  <p>Date: {new Date(order.updated_at).toLocaleDateString()}</p>
                                   <p>Location: {order.delivery_location}</p>
                                   <p>Items: {getTotalItems(order)}</p>
                                 </li>
