@@ -17,12 +17,13 @@ const CustomersPage = () => {
   const [customerToEdit, setCustomerToEdit] = useState(null);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
-
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.city && customer.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (customer.phone && customer.phone.includes(searchTerm))
-  );
+  const filteredCustomers = customers
+    .filter(customer =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (customer.city && customer.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (customer.phone && customer.phone.includes(searchTerm))
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleFormSubmit = async (customerData) => {
     if (customerToEdit) {

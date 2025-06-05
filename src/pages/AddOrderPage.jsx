@@ -325,12 +325,13 @@ const AddOrderPage = () => {
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="mb-2"
                         />
-                      </div>
-                      {filteredCustomers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name} ({customer.city})
-                        </SelectItem>
-                      ))}
+                      </div>                      {filteredCustomers
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name} ({customer.city})
+                          </SelectItem>
+                        ))}
                       {filteredCustomers.length === 0 && (
                         <p className="p-2 text-sm text-muted-foreground">
                           No customers found.
