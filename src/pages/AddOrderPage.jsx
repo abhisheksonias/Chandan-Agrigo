@@ -448,18 +448,19 @@ const AddOrderPage = () => {
                       className="text-gray-500 dark:text-gray-400"
                     >
                       Choose a transport service...
-                    </option>
-                    {transports &&
+                    </option>                    {transports &&
                       transports.length > 0 &&
-                      transports.map((t) => (
-                        <option
-                          key={t.id}
-                          value={t.name}
-                          className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
-                        >
-                          {t.name}
-                        </option>
-                      ))}
+                      [...transports]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((t) => (
+                          <option
+                            key={t.id}
+                            value={t.name}
+                            className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                          >
+                            {t.name}
+                          </option>
+                        ))}
                   </select>
                 </div>
                 <div className="w-full">

@@ -17,11 +17,12 @@ const TransportsPage = () => {
   const [transportToEdit, setTransportToEdit] = useState(null);
   const [transportToDelete, setTransportToDelete] = useState(null);
   const [expandedTransportId, setExpandedTransportId] = useState(null);
-
-  const filteredTransports = transports.filter(transport =>
-    transport.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (transport.address && transport.address.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTransports = transports
+    .filter(transport =>
+      transport.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (transport.address && transport.address.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleFormSubmit = async (transportData) => {
     if (transportToEdit) {
