@@ -3,9 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart3,
   CheckCircle,
-
   Clock,
-
   DownloadCloud,
   Edit,
   Filter,
@@ -121,7 +119,7 @@ const AnalyticsBoardPage = () => {
 
   const getOrdersByStatus = (status) => {
     let ordersToReturn;
-    
+
     if (status === "Full Dispatch") {
       // Only show current month full dispatch orders
       const now = new Date();
@@ -136,9 +134,11 @@ const AnalyticsBoardPage = () => {
         );
       });
     } else {
-      ordersToReturn = filteredOrders.filter((order) => order.status === status);
+      ordersToReturn = filteredOrders.filter(
+        (order) => order.status === status
+      );
     }
-    
+
     // Sort by creation time in descending order (latest first)
     return ordersToReturn.sort((a, b) => {
       const dateA = new Date(a.created_at);
@@ -437,10 +437,10 @@ const AnalyticsBoardPage = () => {
         const baseOrderInfo = {
           "Order ID": order.id,
           "Customer Name": order.customer_name || "N/A",
-          "Phone": order.phone_number || "N/A",
-          "City": order.city || "N/A",
+          Phone: order.phone_number || "N/A",
+          City: order.city || "N/A",
           "Delivery Location": order.delivery_location || "N/A",
-          "Status": order.status || "Unknown",
+          Status: order.status || "Unknown",
           "Order Date": formatDate(order.created_at),
           "Added By": order.added_by || "N/A",
         };
@@ -460,122 +460,136 @@ const AnalyticsBoardPage = () => {
 
         // Calculate order total price
         let totalOrderPrice = 0;
-        if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        if (
+          order.items &&
+          Array.isArray(order.items) &&
+          order.items.length > 0
+        ) {
           totalOrderPrice = order.items.reduce((sum, item) => {
             const quantity = Number(item.quantity) || 0;
             const price = Number(item.price) || 0;
             return sum + quantity * price;
           }, 0);
         }
-          // If order has no items, add a single row with the order info
-        if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+        // If order has no items, add a single row with the order info
+        if (
+          !order.items ||
+          !Array.isArray(order.items) ||
+          order.items.length === 0
+        ) {
           formattedOrdersData.push({
             ...baseOrderInfo,
             "Product Name": "No items",
-            "Quantity": "",
-            "Unit": "",
+            Quantity: "",
+            Unit: "",
             "Price Per Unit": "",
             "Product Total": "",
             "Order Total": totalOrderPrice.toFixed(2),
             // "Row Type": "Order with no items"
           });
-          
+
           // Add a blank row after this order for better readability
           formattedOrdersData.push({
             "Order ID": "",
             "Customer Name": "",
-            "Phone": "",
-            "City": "",
+            Phone: "",
+            City: "",
             "Delivery Location": "",
-            "Status": "",
+            Status: "",
             "Order Date": "",
             "Added By": "",
-            "Transport": "",
+            Transport: "",
             "Product Name": "",
-            "Quantity": "",
-            "Unit": "",
+            Quantity: "",
+            Unit: "",
             "Price Per Unit": "",
             "Product Total": "",
             "Order Total": "",
             // "Row Type": "Separator"
           });
-        } else {// Add each product as a separate row
+        } else {
+          // Add each product as a separate row
           order.items.forEach((item, index) => {
-            const productName = item.productName || item.product_name || "Unknown Product";
+            const productName =
+              item.productName || item.product_name || "Unknown Product";
             const quantity = Number(item.quantity) || 0;
             const price = Number(item.price) || 0;
             const productTotal = quantity * price;
             const unit = item.unit || "units";
-            
+
             // For first product row, include all order details
             // For subsequent rows, leave order details blank to avoid repetition
-            const rowData = index === 0 
-              ? {
-                  ...baseOrderInfo,
-                  "Product Name": productName,
-                  "Quantity": quantity,
-                  "Unit": unit,
-                  "Price Per Unit": price.toFixed(2),
-                  "Product Total": productTotal.toFixed(2),
-                  "Order Total": totalOrderPrice.toFixed(2),
-                  // "Row Type": "First product in order"
-                }
-              : {
-                  "Order ID": order.id, // Keep Order ID on all rows for reference
-                  "Customer Name": "",
-                  "Phone": "",
-                  "City": "",
-                  "Delivery Location": "",
-                  "Status": "",
-                  "Order Date": "",
-                  "Added By": "",
-                  "Transport": "",
-                  "Product Name": productName,
-                  "Quantity": quantity,
-                  "Unit": unit,
-                  "Price Per Unit": price.toFixed(2),
-                  "Product Total": productTotal.toFixed(2),
-                  "Order Total": "",
-                  // "Row Type": "Additional product"
-                };
-            
+            const rowData =
+              index === 0
+                ? {
+                    ...baseOrderInfo,
+                    "Product Name": productName,
+                    Quantity: quantity,
+                    Unit: unit,
+                    "Price Per Unit": price.toFixed(2),
+                    "Product Total": productTotal.toFixed(2),
+                    "Order Total": totalOrderPrice.toFixed(2),
+                    // "Row Type": "First product in order"
+                  }
+                : {
+                    "Order ID": order.id, // Keep Order ID on all rows for reference
+                    "Customer Name": "",
+                    Phone: "",
+                    City: "",
+                    "Delivery Location": "",
+                    Status: "",
+                    "Order Date": "",
+                    "Added By": "",
+                    Transport: "",
+                    "Product Name": productName,
+                    Quantity: quantity,
+                    Unit: unit,
+                    "Price Per Unit": price.toFixed(2),
+                    "Product Total": productTotal.toFixed(2),
+                    "Order Total": "",
+                    // "Row Type": "Additional product"
+                  };
+
             formattedOrdersData.push(rowData);
           });
-            // Add a summary row for the order if there are multiple products
+          // Add a summary row for the order if there are multiple products
           if (order.items.length > 1) {
             formattedOrdersData.push({
               "Order ID": order.id,
               "Customer Name": "",
-              "Phone": "",
-              "City": "",
+              Phone: "",
+              City: "",
               "Delivery Location": "",
-              "Status": "",
+              Status: "",
               "Order Date": "",
               "Added By": "",
-              "Transport": "",
+              Transport: "",
               "Product Name": `--- Order Summary (${order.items.length} items) ---`,
-              "Quantity": order.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
-              "Unit": "total",
+              Quantity: order.items.reduce(
+                (sum, item) => sum + (Number(item.quantity) || 0),
+                0
+              ),
+              Unit: "total",
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": totalOrderPrice.toFixed(2),
               // "Row Type": "Order summary"
             });
-            
+
             // Add a blank row after each order for better readability
             formattedOrdersData.push({
               "Order ID": "",
               "Customer Name": "",
-              "Phone": "",
-              "City": "",
+              Phone: "",
+              City: "",
               "Delivery Location": "",
-              "Status": "",
+              Status: "",
               "Order Date": "",
               "Added By": "",
-              "Transport": "",
+              Transport: "",
               "Product Name": "",
-              "Quantity": "",
-              "Unit": "",
+              Quantity: "",
+              Unit: "",
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": "",
@@ -586,16 +600,16 @@ const AnalyticsBoardPage = () => {
             formattedOrdersData.push({
               "Order ID": "",
               "Customer Name": "",
-              "Phone": "",
-              "City": "",
+              Phone: "",
+              City: "",
               "Delivery Location": "",
-              "Status": "",
+              Status: "",
               "Order Date": "",
               "Added By": "",
-              "Transport": "",
+              Transport: "",
               "Product Name": "",
-              "Quantity": "",
-              "Unit": "",
+              Quantity: "",
+              Unit: "",
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": "",
@@ -603,32 +617,32 @@ const AnalyticsBoardPage = () => {
             });
           }
         }
-      });      // Create worksheet from data
+      }); // Create worksheet from data
       const ws = XLSX.utils.json_to_sheet(formattedOrdersData);
-      
+
       // Add headers styling (make them bold)
       const headerStyle = {
         font: { bold: true },
-        alignment: { horizontal: 'center' }
+        alignment: { horizontal: "center" },
       };
-      
+
       // Get the headers range (A1:Q1)
-      const range = XLSX.utils.decode_range(ws['!ref']);
+      const range = XLSX.utils.decode_range(ws["!ref"]);
       for (let col = range.s.c; col <= range.e.c; col++) {
         const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
         if (!ws[cellAddress]) continue;
         ws[cellAddress].s = headerStyle;
       }
-      
+
       // Auto-size columns (optional enhancement)
       const colWidths = {};
-      formattedOrdersData.forEach(row => {
-        Object.keys(row).forEach(key => {
+      formattedOrdersData.forEach((row) => {
+        Object.keys(row).forEach((key) => {
           const value = String(row[key] || "");
           colWidths[key] = Math.max(colWidths[key] || 0, value.length);
         });
       });
-      
+
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, "Orders");
 
@@ -636,7 +650,7 @@ const AnalyticsBoardPage = () => {
       const fileName = `Chandan_Agrico_Orders_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`;
-      XLSX.writeFile(wb, fileName);      // Show success toast
+      XLSX.writeFile(wb, fileName); // Show success toast
       toast({
         title: "Export Successful",
         description: `${filteredOrders.length} orders exported to Excel sorted by date (latest first).`,
@@ -673,7 +687,8 @@ const AnalyticsBoardPage = () => {
     } else if (order.items && order.items.length > 0) {
       totalPrice = order.items
         .reduce(
-          (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+          (sum, item) =>
+            sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
           0
         )
         .toFixed(2);
@@ -684,9 +699,14 @@ const AnalyticsBoardPage = () => {
       const item = order.items[0];
       const name = item.productName || item.product_name || "Unknown";
       const shortName = name.length > 20 ? name.substring(0, 18) + "..." : name;
-      productSummary = `${shortName} (${item.quantity || 0} ${item.unit || "units"})`;
+      productSummary = `${shortName} (${item.quantity || 0} ${
+        item.unit || "units"
+      })`;
     } else if (order.items && order.items.length > 1) {
-      const totalQty = order.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+      const totalQty = order.items.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0),
+        0
+      );
       productSummary = `${order.items.length} items (${totalQty} units total)`;
     }
     return { totalPrice, productSummary };
@@ -699,7 +719,9 @@ const AnalyticsBoardPage = () => {
       icon: Clock,
       data: getOrdersByStatus("Unconfirmed"),
       actions: (order) => (
-        <>          <Button
+        <>
+          {" "}
+          <Button
             size="sm"
             style={{ backgroundColor: "#25D366", color: "white" }}
             className="hover:bg-green-500 focus:ring-green-600 mr-1"
@@ -707,14 +729,29 @@ const AnalyticsBoardPage = () => {
             title="Contact on WhatsApp"
           >
             <a
-              href={order.phone_number ? 
-                `https://wa.me/91${order.phone_number}?text=${encodeURIComponent("Thank you for shopping with us. Please find your Purchase Order here.")}` : 
-                "#"}
+              href={
+                order.phone_number
+                  ? `https://api.whatsapp.com/send?phone=91${
+                      order.phone_number
+                    }&text=${encodeURIComponent(
+                      `Namaste, please find your purchase order attached.\n \nSend “OK” to confirm order within 24 hours: ${
+                        order.po_url || ""
+                      }`
+                    )}`
+                  : "#"
+              }
               target="_blank"
               rel="noopener noreferrer"
-              onClick={e => { if (!order.phone_number) e.preventDefault(); }}
+              onClick={(e) => {
+                if (!order.phone_number) {
+                  e.preventDefault();
+                  alert("Customer phone number not available.");
+                }
+              }}
             >
-              <FaWhatsapp className="mr-2 h-4 w-4" />Send PO</a>
+              <FaWhatsapp className="mr-2 h-4 w-4" />
+              Send PO
+            </a>
           </Button>
           <Button size="sm" onClick={() => handleConfirmOrder(order.id)}>
             <CheckCircle className="mr-2 h-4 w-4" />
@@ -725,14 +762,16 @@ const AnalyticsBoardPage = () => {
             variant="outline"
             onClick={() => handleOpenEditOrderDialog(order)}
           >
-            <Edit className="mr-2 h-4 w-4" />Edit
+            <Edit className="mr-2 h-4 w-4" />
+            Edit
           </Button>
           <Button
             size="sm"
             variant="destructive"
             onClick={() => handleDeleteOrder(order.id)}
           >
-            <X className="mr-2 h-4 w-4" />Delete
+            <X className="mr-2 h-4 w-4" />
+            Delete
           </Button>
         </>
       ),
@@ -837,10 +876,11 @@ const AnalyticsBoardPage = () => {
   // Helper: Get product quantity summary for a list of orders
   const getProductQuantitySummary = (orders) => {
     const summary = {};
-    orders.forEach(order => {
+    orders.forEach((order) => {
       if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          const name = item.productName || item.product_name || 'Unknown Product';
+        order.items.forEach((item) => {
+          const name =
+            item.productName || item.product_name || "Unknown Product";
           const qty = Number(item.quantity) || 0;
           if (!summary[name]) summary[name] = 0;
           summary[name] += qty;
@@ -857,12 +897,15 @@ const AnalyticsBoardPage = () => {
     if (productNames.length === 0) return null;
     return (
       <div className="mb-4 p-4 rounded bg-blue-50 border border-blue-200">
-        <h3 className="font-semibold text-blue-800 mb-2 text-sm">Product Quantity Summary</h3>
+        <h3 className="font-semibold text-blue-800 mb-2 text-sm">
+          Product Quantity Summary
+        </h3>
         <div className="flex flex-wrap gap-3">
-          {productNames.map(name => {
+          {productNames.map((name) => {
             // Find product in products context
             const product = products?.find(
-              p => (p.productName || p.product_name) === name || p.name === name
+              (p) =>
+                (p.productName || p.product_name) === name || p.name === name
             );
             const stock = product ? product.stock ?? 0 : 0;
             const ordered = summary[name];
@@ -870,12 +913,18 @@ const AnalyticsBoardPage = () => {
             return (
               <div
                 key={name}
-                className={`text-xs px-3 py-1 rounded shadow-sm ${ordered > stock ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-blue-100 text-blue-900'}`}
+                className={`text-xs px-3 py-1 rounded shadow-sm ${
+                  ordered > stock
+                    ? "bg-red-100 text-red-800 border border-red-300"
+                    : "bg-blue-100 text-blue-900"
+                }`}
               >
                 <span className="font-medium">{name}:</span> {ordered}
                 <span className="ml-2">(Stock: {stock})</span>
                 {ordered > stock && (
-                  <span className="ml-2 text-red-700 font-semibold">Need {shortage} more</span>
+                  <span className="ml-2 text-red-700 font-semibold">
+                    Need {shortage} more
+                  </span>
                 )}
               </div>
             );
@@ -886,35 +935,38 @@ const AnalyticsBoardPage = () => {
   };
 
   return (
-    <div className="space-y-6">      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Board</h1>
-        <p className="text-muted-foreground text-sm">
-          Track and manage your orders through different stages.
-        </p>
+    <div className="space-y-6">
+      {" "}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Analytics Board
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Track and manage your orders through different stages.
+          </p>
+        </div>
+        <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
+          <Button
+            onClick={exportToExcel}
+            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
+            variant="outline"
+            size="sm"
+          >
+            <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Export to Excel</span>
+          </Button>
+          <Button
+            onClick={handleDeleteAllOrders}
+            className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
+            variant="destructive"
+            size="sm"
+          >
+            <X className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Delete All</span>
+          </Button>
+        </div>
       </div>
-      <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
-        <Button
-          onClick={exportToExcel}
-          className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
-          variant="outline"
-          size="sm"
-        >
-          <DownloadCloud className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Export to Excel</span>
-        </Button>
-        <Button
-          onClick={handleDeleteAllOrders}
-          className="flex items-center justify-center gap-1.5 h-8 text-xs sm:text-sm"
-          variant="destructive"
-          size="sm"
-        >
-          <X className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Delete All</span>
-        </Button>
-      </div>
-    </div>
-
       {/* Search and Filter Section */}
       <Card>
         <CardHeader>
@@ -969,12 +1021,22 @@ const AnalyticsBoardPage = () => {
                       <select
                         id="customer-search"
                         value={searchFilters.customerName}
-                        onChange={(e) => handleFilterChange("customerName", e.target.value)}
+                        onChange={(e) =>
+                          handleFilterChange("customerName", e.target.value)
+                        }
                         className="pl-9 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">All Customers</option>
-                        {[...new Set(orders.map(order => order.customer_name).filter(Boolean))].map((name) => (
-                          <option key={name} value={name}>{name}</option>
+                        {[
+                          ...new Set(
+                            orders
+                              .map((order) => order.customer_name)
+                              .filter(Boolean)
+                          ),
+                        ].map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1014,12 +1076,27 @@ const AnalyticsBoardPage = () => {
                       <select
                         id="product-search"
                         value={searchFilters.productName}
-                        onChange={(e) => handleFilterChange("productName", e.target.value)}
+                        onChange={(e) =>
+                          handleFilterChange("productName", e.target.value)
+                        }
                         className="pl-9 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">All Products</option>
-                        {[...new Set(orders.flatMap(order => (order.items || []).map(item => item.productName || item.product_name)).filter(Boolean))].map((product) => (
-                          <option key={product} value={product}>{product}</option>
+                        {[
+                          ...new Set(
+                            orders
+                              .flatMap((order) =>
+                                (order.items || []).map(
+                                  (item) =>
+                                    item.productName || item.product_name
+                                )
+                              )
+                              .filter(Boolean)
+                          ),
+                        ].map((product) => (
+                          <option key={product} value={product}>
+                            {product}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1108,36 +1185,38 @@ const AnalyticsBoardPage = () => {
           )}
         </AnimatePresence>
       </Card>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">        <TabsList className="grid w-full grid-cols-5 gap-1 h-auto p-1 overflow-x-auto scrollbar-hide">
-        {tabsConfig.map((tab) => (
-          <TabsTrigger
-            key={tab.value}
-            value={tab.value}
-            className="flex items-center justify-center gap-1 text-xs md:text-sm px-2 py-1.5 min-h-[2.25rem] whitespace-nowrap"
-          >
-            <tab.icon className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-            <div className="flex items-center gap-1 min-w-0">
-              <span className="hidden xs:inline truncate">
-                {tab.label.split(" ")[0]}
-              </span>
-              <span className="text-xs opacity-75 whitespace-nowrap">
-                ({tab.data.length})
-              </span>
-            </div>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {" "}
+        <TabsList className="grid w-full grid-cols-5 gap-1 h-auto p-1 overflow-x-auto scrollbar-hide">
+          {tabsConfig.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex items-center justify-center gap-1 text-xs md:text-sm px-2 py-1.5 min-h-[2.25rem] whitespace-nowrap"
+            >
+              <tab.icon className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="hidden xs:inline truncate">
+                  {tab.label.split(" ")[0]}
+                </span>
+                <span className="text-xs opacity-75 whitespace-nowrap">
+                  ({tab.data.length})
+                </span>
+              </div>
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {tabsConfig.map((tab) => (
           <TabsContent
             key={tab.value}
             value={tab.value}
             className="mt-2 sm:mt-4"
           >
-            {(tab.value === "unconfirmed_orders" || tab.value === "confirmed_orders") && (
+            {(tab.value === "unconfirmed_orders" ||
+              tab.value === "confirmed_orders") && (
               <ProductQuantitySummary orders={tab.data} />
-            )}            <Card>
+            )}{" "}
+            <Card>
               <CardHeader className="pb-2 sm:pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-1.5 text-base sm:text-lg">
@@ -1147,7 +1226,8 @@ const AnalyticsBoardPage = () => {
 
                   <CardDescription className="m-0 text-xs">
                     <div className="flex items-center gap-1">
-                      <span className="font-medium">{tab.data.length}</span> orders
+                      <span className="font-medium">{tab.data.length}</span>{" "}
+                      orders
                       {hasActiveFilters &&
                         filteredOrders.length !== orders.length && (
                           <span className="text-primary">
@@ -1157,22 +1237,25 @@ const AnalyticsBoardPage = () => {
                                 tab.value === "total_orders"
                                   ? true
                                   : order.status ===
-                                  tab.label
-                                    .replace(" Orders", "")
-                                    .replace(" Dispatch", " Dispatch")
+                                    tab.label
+                                      .replace(" Orders", "")
+                                      .replace(" Dispatch", " Dispatch")
                               ).length
-                            })
+                            }
+                            )
                           </span>
                         )}
                     </div>
                   </CardDescription>
                 </div>
-              </CardHeader>              <CardContent className="px-2 sm:px-4 py-2">
+              </CardHeader>{" "}
+              <CardContent className="px-2 sm:px-4 py-2">
                 {tab.data.length > 0 ? (
                   <AnimatePresence>
                     <div className="space-y-1.5">
                       {tab.data.map((order) => {
-                        const { totalPrice, productSummary } = getOrderCardData(order);
+                        const { totalPrice, productSummary } =
+                          getOrderCardData(order);
                         return (
                           <OrderCard
                             key={order.id}
@@ -1192,10 +1275,13 @@ const AnalyticsBoardPage = () => {
                                 {
                                   name: orderData.customer_name,
                                   city: orderData.city,
-                                  phone: orderData.phone_number
+                                  phone: orderData.phone_number,
                                 },
                                 {
-                                  name: orderData.transportName || dispatchData?.transportName || 'N/A'
+                                  name:
+                                    orderData.transportName ||
+                                    dispatchData?.transportName ||
+                                    "N/A",
                                 },
                                 products // Pass the products array for images
                               )
@@ -1205,7 +1291,6 @@ const AnalyticsBoardPage = () => {
                           />
                         );
                       })}
-
                     </div>
                   </AnimatePresence>
                 ) : (
@@ -1236,7 +1321,6 @@ const AnalyticsBoardPage = () => {
           </TabsContent>
         ))}
       </Tabs>
-
       <Dialog
         open={isEditOrderDialogOpen}
         onOpenChange={setIsEditOrderDialogOpen}
@@ -1254,7 +1338,6 @@ const AnalyticsBoardPage = () => {
           )}
         </DialogContent>
       </Dialog>
-
       <Dialog
         open={isDispatchDialogOpen}
         onOpenChange={setIsDispatchDialogOpen}
@@ -1282,4 +1365,3 @@ const AnalyticsBoardPage = () => {
 };
 
 export default AnalyticsBoardPage;
- 
