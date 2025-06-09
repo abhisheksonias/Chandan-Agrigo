@@ -56,23 +56,30 @@ class PDFGenerator {
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = fileName;
-      // iOS detection
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS) {
-        // Open in new tab for iOS, user can use Share/Save
-        window.open(blobUrl, '_blank');
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-        }, 1000);
-        alert('On iOS, tap the Share icon and choose "Save to Files" to save the PDF.');
-      } else {
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-        }, 100);
-      }
+            document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+
+      // // iOS detection
+      // const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      // if (isIOS) {
+      //   // Open in new tab for iOS, user can use Share/Save
+      //   window.open(blobUrl, '_blank');
+      //   setTimeout(() => {
+      //     URL.revokeObjectURL(blobUrl);
+      //   }, 1000);
+      //   alert('On iOS, tap the Share icon and choose "Save to Files" to save the PDF.');
+      // } else {
+      //   document.body.appendChild(link);
+      //   link.click();
+      //   setTimeout(() => {
+      //     document.body.removeChild(link);
+      //     URL.revokeObjectURL(blobUrl);
+      //   }, 100);
+      // }
       // --- End mobile-friendly logic ---
  
       return { 

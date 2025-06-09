@@ -437,10 +437,10 @@ const AnalyticsBoardPage = () => {
         const baseOrderInfo = {
           "Order ID": order.id,
           "Customer Name": order.customer_name || "N/A",
-          Phone: order.phone_number || "N/A",
-          City: order.city || "N/A",
+          "Phone": order.phone_number || "N/A",
+          "City": order.city || "N/A",
           "Delivery Location": order.delivery_location || "N/A",
-          Status: order.status || "Unknown",
+          "Status": order.status || "Unknown",
           "Order Date": formatDate(order.created_at),
           "Added By": order.added_by || "N/A",
         };
@@ -492,16 +492,16 @@ const AnalyticsBoardPage = () => {
           formattedOrdersData.push({
             "Order ID": "",
             "Customer Name": "",
-            Phone: "",
-            City: "",
+            "Phone": "",
+            "City": "",
             "Delivery Location": "",
-            Status: "",
+            "Status": "",
             "Order Date": "",
             "Added By": "",
-            Transport: "",
+            "Transport": "",
             "Product Name": "",
-            Quantity: "",
-            Unit: "",
+            "Quantity": "",
+            "Unit": "",
             "Price Per Unit": "",
             "Product Total": "",
             "Order Total": "",
@@ -519,37 +519,36 @@ const AnalyticsBoardPage = () => {
 
             // For first product row, include all order details
             // For subsequent rows, leave order details blank to avoid repetition
-            const rowData =
-              index === 0
-                ? {
-                    ...baseOrderInfo,
-                    "Product Name": productName,
-                    Quantity: quantity,
-                    Unit: unit,
-                    "Price Per Unit": price.toFixed(2),
-                    "Product Total": productTotal.toFixed(2),
-                    "Order Total": totalOrderPrice.toFixed(2),
-                    // "Row Type": "First product in order"
-                  }
-                : {
-                    "Order ID": order.id, // Keep Order ID on all rows for reference
-                    "Customer Name": "",
-                    Phone: "",
-                    City: "",
-                    "Delivery Location": "",
-                    Status: "",
-                    "Order Date": "",
-                    "Added By": "",
-                    Transport: "",
-                    "Product Name": productName,
-                    Quantity: quantity,
-                    Unit: unit,
-                    "Price Per Unit": price.toFixed(2),
-                    "Product Total": productTotal.toFixed(2),
-                    "Order Total": "",
-                    // "Row Type": "Additional product"
-                  };
-
+                        const rowData = index === 0 
+              ? {
+                  ...baseOrderInfo,
+                  "Product Name": productName,
+                  "Quantity": quantity,
+                  "Unit": unit,
+                  "Price Per Unit": price.toFixed(2),
+                  "Product Total": productTotal.toFixed(2),
+                  "Order Total": totalOrderPrice.toFixed(2),
+                  // "Row Type": "First product in order"
+                }
+              : {
+                  "Order ID": order.id, // Keep Order ID on all rows for reference
+                  "Customer Name": "",
+                  "Phone": "",
+                  "City": "",
+                  "Delivery Location": "",
+                  "Status": "",
+                  "Order Date": "",
+                  "Added By": "",
+                  "Transport": "",
+                  "Product Name": productName,
+                  "Quantity": quantity,
+                  "Unit": unit,
+                  "Price Per Unit": price.toFixed(2),
+                  "Product Total": productTotal.toFixed(2),
+                  "Order Total": "",
+                  // "Row Type": "Additional product"
+                };
+            
             formattedOrdersData.push(rowData);
           });
           // Add a summary row for the order if there are multiple products
@@ -557,19 +556,17 @@ const AnalyticsBoardPage = () => {
             formattedOrdersData.push({
               "Order ID": order.id,
               "Customer Name": "",
-              Phone: "",
-              City: "",
+              "Phone": "",
+              "City": "",
               "Delivery Location": "",
-              Status: "",
+              "Status": "",
               "Order Date": "",
               "Added By": "",
-              Transport: "",
+              "Transport": "",
               "Product Name": `--- Order Summary (${order.items.length} items) ---`,
-              Quantity: order.items.reduce(
-                (sum, item) => sum + (Number(item.quantity) || 0),
-                0
-              ),
-              Unit: "total",
+                            "Quantity": order.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+              "Unit": "total",
+
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": totalOrderPrice.toFixed(2),
@@ -580,16 +577,16 @@ const AnalyticsBoardPage = () => {
             formattedOrdersData.push({
               "Order ID": "",
               "Customer Name": "",
-              Phone: "",
-              City: "",
+              "Phone": "",
+              "City": "",
               "Delivery Location": "",
-              Status: "",
+              "Status": "",
               "Order Date": "",
               "Added By": "",
-              Transport: "",
+              "Transport": "",
               "Product Name": "",
-              Quantity: "",
-              Unit: "",
+              "Quantity": "",
+              "Unit": "",
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": "",
@@ -600,16 +597,16 @@ const AnalyticsBoardPage = () => {
             formattedOrdersData.push({
               "Order ID": "",
               "Customer Name": "",
-              Phone: "",
-              City: "",
+              "Phone": "",
+              "City": "",
               "Delivery Location": "",
-              Status: "",
+              "Status": "",
               "Order Date": "",
               "Added By": "",
-              Transport: "",
+              "Transport": "",
               "Product Name": "",
-              Quantity: "",
-              Unit: "",
+              "Quantity": "",
+              "Unit": "",
               "Price Per Unit": "",
               "Product Total": "",
               "Order Total": "",
