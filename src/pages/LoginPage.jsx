@@ -243,7 +243,7 @@ const LoginPage = ({ onLoginSuccess }) => {
             </form>
 
             {/* Registration Link */}
-            <div className="mt-6 text-center">
+            {/* <div className="mt-6 text-center">
               <p className="text-sm text-white  text-muted-foreground">
                 Don't have an account?{' '}
                 <Link 
@@ -253,7 +253,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                   Create one
                 </Link>
               </p>
-            </div>
+            </div> */}
           </CardContent>
           <CardFooter className="text-center text-white text-xs ">
             <p>&copy; {new Date().getFullYear()} Chandan Agrico. All rights reserved.</p>
