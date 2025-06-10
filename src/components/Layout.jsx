@@ -3,11 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
+  ClipboardList,
   ShoppingCart,
   Users,
   Package,
   Truck,
-  BarChart3,
   Menu,
   X,
   LogOut,
@@ -24,10 +24,10 @@ import { userService } from "@/lib/supabaseService";
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: ShoppingCart, label: "Add Order", path: "/add-order" },
+  { icon: ClipboardList, label: "Current Orders", path: "/analytics" },
   { icon: Users, label: "Customers", path: "/customers" },
   { icon: Package, label: "Products", path: "/products" },
   { icon: Truck, label: "Transport", path: "/transports" },
-  { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: History, label: "Past Orders", path: "/past-orders" }, // Use History icon for Past Orders
   { icon: LineChart, label: "Sales Analytics", path: "/sales-analytics" }, // Use History icon for Past Orders
 ];
