@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import {
   Select,
@@ -31,6 +31,36 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
     order?.transportName || ""
   );
 
+  // Add new state for transport search and dropdown
+  const [transportSearchTerm, setTransportSearchTerm] = useState("");
+  const [transportDropdownOpen, setTransportDropdownOpen] = useState(false);
+  const transportInputRef = useRef(null);
+  const transportComboboxRef = useRef(null);
+
+  // Add new state for product search and dropdown
+  const [productSearchTerms, setProductSearchTerms] = useState([]);
+  const [productDropdownOpen, setProductDropdownOpen] = useState([]);
+  const productInputRefs = useRef([]);
+  const productComboboxRefs = useRef([]);
+
+  // Filter transports based on search term
+  const filteredTransports =
+    transports?.filter((transport) =>
+      transport.name
+        .toLowerCase()
+        .includes(transportSearchTerm.toLowerCase())
+    ) || [];
+
+  // Function to filter products based on search term
+  const getFilteredProducts = (searchTerm) => {
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.unit &&
+          product.unit.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  };
+
   // Initialize form data when order prop changes
   useEffect(() => {
     if (order) {
@@ -49,8 +79,37 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
             : [{ productId: "", quantity: 1, price: 0 }],
       });
       setSelectedTransport(order.transportName || "");
+      // Initialize transport search term
+      setTransportSearchTerm("");
     }
   }, [order]);
+
+  // Update product search arrays when items change
+  useEffect(() => {
+    const itemsLength = formData.items.length;
+
+    // Update product search terms array
+    setProductSearchTerms((prev) => {
+      const newTerms = [...prev];
+      while (newTerms.length < itemsLength) {
+        newTerms.push("");
+      }
+      return newTerms.slice(0, itemsLength);
+    });
+
+    // Update product dropdown state array
+    setProductDropdownOpen((prev) => {
+      const newDropdowns = [...prev];
+      while (newDropdowns.length < itemsLength) {
+        newDropdowns.push(false);
+      }
+      return newDropdowns.slice(0, itemsLength);
+    });
+
+    // Update refs for products
+    productInputRefs.current = productInputRefs.current.slice(0, itemsLength);
+    productComboboxRefs.current = productComboboxRefs.current.slice(0, itemsLength);
+  }, [formData.items.length]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -93,17 +152,75 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
     setFormData((prev) => ({ ...prev, items: newItems }));
   };
 
+  // Function to handle product selection from dropdown
+  const handleProductSelect = (index, productId) => {
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      handleItemChange(index, "productId", productId);
+      
+      // Clear search term and close dropdown
+      const newSearchTerms = [...productSearchTerms];
+      newSearchTerms[index] = "";
+      setProductSearchTerms(newSearchTerms);
+      
+      const newDropdownOpen = [...productDropdownOpen];
+      newDropdownOpen[index] = false;
+      setProductDropdownOpen(newDropdownOpen);
+    }
+  };
+
+  // Function to toggle product dropdown
+  const toggleProductDropdown = (index, value) => {
+    const newDropdownOpen = [...productDropdownOpen];
+    newDropdownOpen[index] = value;
+    setProductDropdownOpen(newDropdownOpen);
+    
+    if (value && productInputRefs.current[index]) {
+      productInputRefs.current[index].focus();
+    }
+  };
+
+  // Function to update product search term
+  const updateProductSearchTerm = (index, value) => {
+    const newSearchTerms = [...productSearchTerms];
+    newSearchTerms[index] = value;
+    setProductSearchTerms(newSearchTerms);
+    
+    // Clear product selection when searching
+    const newItems = [...formData.items];
+    if (newItems[index].productId) {
+      newItems[index].productId = "";
+      setFormData((prev) => ({ ...prev, items: newItems }));
+    }
+    
+    // Open dropdown when searching
+    const newDropdownOpen = [...productDropdownOpen];
+    newDropdownOpen[index] = true;
+    setProductDropdownOpen(newDropdownOpen);
+  };
+
   const addItem = () => {
     setFormData((prev) => ({
       ...prev,
       items: [...prev.items, { productId: "", quantity: 1, price: 0 }],
     }));
+    
+    // Add new empty search term and closed dropdown state
+    setProductSearchTerms([...productSearchTerms, ""]);
+    setProductDropdownOpen([...productDropdownOpen, false]);
   };
 
   const removeItem = (index) => {
     if (formData.items.length > 1) {
       const newItems = formData.items.filter((_, i) => i !== index);
       setFormData((prev) => ({ ...prev, items: newItems }));
+      
+      // Remove corresponding search term and dropdown state
+      const newSearchTerms = productSearchTerms.filter((_, i) => i !== index);
+      setProductSearchTerms(newSearchTerms);
+      
+      const newDropdownOpen = productDropdownOpen.filter((_, i) => i !== index);
+      setProductDropdownOpen(newDropdownOpen);
     }
   };
 
@@ -244,6 +361,43 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
     return sum + qty * price;
   }, 0);
 
+  // Close transport dropdown on outside click
+  useEffect(() => {
+    if (!transportDropdownOpen) return;
+    
+    function handleClickOutside(event) {
+      if (
+        transportComboboxRef.current &&
+        !transportComboboxRef.current.contains(event.target)
+      ) {
+        setTransportDropdownOpen(false);
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [transportDropdownOpen]);
+  
+  // Close product dropdowns on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      productComboboxRefs.current.forEach((ref, index) => {
+        if (productDropdownOpen[index] && ref && !ref.contains(event.target)) {
+          const newDropdownOpen = [...productDropdownOpen];
+          newDropdownOpen[index] = false;
+          setProductDropdownOpen(newDropdownOpen);
+        }
+      });
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [productDropdownOpen]);
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -313,9 +467,7 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
             />
           </div>
         </div>
-      </div>
-
-      {/* Transport Selection Section */}
+      </div>      {/* Transport Selection Section */}
       <div className="space-y-4 p-4 border rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Transport Information
@@ -328,35 +480,66 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
             >
               Select Transport Service
             </Label>
-            <select
-              id="transport-select"
-              className="w-full border border-gray-300 dark:border-gray-600 
-                   rounded px-3 py-2 
-                   bg-white dark:bg-gray-700 
-                   text-gray-900 dark:text-gray-100
-                   focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
-                   focus:border-blue-500 dark:focus:border-blue-400 
-                   transition-colors duration-200
-                   hover:border-gray-400 dark:hover:border-gray-500"
-              value={selectedTransport}
-              onChange={(e) => setSelectedTransport(e.target.value)}
-            >
-              <option value="" className="text-gray-500 dark:text-gray-400">
-                Choose a transport service...
-              </option>              {transports &&
-                transports.length > 0 &&
-                [...transports]
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((t) => (
-                    <option
-                      key={t.id}
-                      value={t.name}
-                      className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
-                    >
-                      {t.name}
-                    </option>
-                  ))}
-            </select>
+            <div className="relative" ref={transportComboboxRef}>
+              <Input
+                id="transport-select"
+                ref={transportInputRef}
+                placeholder="Search or select a transport..."
+                value={selectedTransport || transportSearchTerm}
+                onChange={(e) => {
+                  setTransportSearchTerm(e.target.value);
+                  setSelectedTransport("");
+                  setTransportDropdownOpen(true);
+                }}
+                autoComplete="off"
+                onFocus={() => setTransportDropdownOpen(true)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 
+                bg-white dark:bg-gray-700 
+                text-gray-900 dark:text-gray-100
+                focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
+                focus:border-blue-500 dark:focus:border-blue-400 
+                transition-colors duration-200
+                hover:border-gray-400 dark:hover:border-gray-500 pr-10"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTransportDropdownOpen((open) => !open);
+                  transportInputRef.current && transportInputRef.current.focus();
+                }}
+              >
+                <ChevronDown className="w-5 h-5" />
+              </button>
+              {transportDropdownOpen && (
+                <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto">
+                  {filteredTransports.length > 0 ? (
+                    filteredTransports
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((transport) => (
+                        <div
+                          key={transport.id}
+                          className={`px-4 py-2 cursor-pointer hover:bg-primary/10 ${selectedTransport === transport.name ? "bg-primary/20" : ""}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSelectedTransport(transport.name);
+                            setTransportSearchTerm("");
+                            setTransportDropdownOpen(false);
+                          }}
+                        >
+                          {transport.name}
+                        </div>
+                      ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-muted-foreground">
+                      No transport services found.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -403,65 +586,90 @@ const OrderDetailsForm = ({ order, onSubmit, onCancel }) => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                  <div className="md:col-span-8">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">                  <div className="md:col-span-8">
                     <Label
                       htmlFor={`product-${index}`}
                       className="text-sm font-medium mb-2 block"
                     >
                       Product <span className="text-destructive">*</span>
                     </Label>
-                    <Select
-                      value={item.productId}
-                      onValueChange={(value) =>
-                        handleItemChange(index, "productId", value)
-                      }
+                    <div 
+                      className="relative" 
+                      ref={el => productComboboxRefs.current[index] = el}
                     >
-                      <SelectTrigger
-                        id={`product-${index}`}
-                        className="h-11 border-2 focus:border-primary hover:border-muted-foreground/50 transition-colors"
-                      >
-                        <SelectValue placeholder="Choose a product..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem
-                            key={product.id}
-                            value={product.id}
-                            disabled={
-                              product.stock <= 0 &&
-                              product.id !== item.productId
+                      <div className="relative">
+                        <Input
+                          id={`product-${index}`}
+                          ref={el => productInputRefs.current[index] = el}
+                          placeholder="Search or select a product..."
+                          value={item.productId ? (products.find(p => p.id === item.productId)?.name || "") : productSearchTerms[index]}
+                          onChange={e => updateProductSearchTerm(index, e.target.value)}
+                          autoComplete="off"
+                          onFocus={() => toggleProductDropdown(index, true)}
+                          className="h-11 border-2 pr-10 focus:border-primary hover:border-muted-foreground/50 transition-colors"
+                          disabled={dispatchedQuantity > 0}
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-primary"
+                          onClick={e => {
+                            e.preventDefault();
+                            if (!dispatchedQuantity) {
+                              toggleProductDropdown(index, !productDropdownOpen[index]);
+                              productInputRefs.current[index] && productInputRefs.current[index].focus();
                             }
-                            className="py-3"
-                          >
-                            <div className="flex justify-between items-center w-full">
-                              <span
-                                className={`font-medium ${product.stock <= 0 &&
-                                    product.id !== item.productId
-                                    ? "text-muted-foreground"
-                                    : ""
-                                  }`}
-                              >
-                                {product.name}
-                              </span>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground ml-4">
-                                <span className="bg-muted px-2 py-1 rounded">
-                                  {product.unit}
-                                </span>
-                                <span
-                                  className={`px-2 py-1 rounded ${product.stock > 0
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
-                                      : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
-                                    }`}
-                                >
-                                  Stock: {product.stock}
-                                </span>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          }}
+                        >
+                          <ChevronDown className="w-5 h-5" />
+                        </button>
+                        {productDropdownOpen[index] && (
+                          <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto">
+                            {getFilteredProducts(productSearchTerms[index]).length > 0 ? (
+                              getFilteredProducts(productSearchTerms[index])
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map((product) => (
+                                  <div
+                                    key={product.id}
+                                    className={`px-4 py-2 cursor-pointer hover:bg-primary/10 
+                                      ${item.productId === product.id ? "bg-primary/20" : ""}
+                                      ${(product.stock <= 0 && product.id !== item.productId) ? 
+                                        "opacity-50 cursor-not-allowed" : ""}`}
+                                    onMouseDown={e => {
+                                      e.preventDefault();
+                                      if (product.stock > 0 || product.id === item.productId) {
+                                        handleProductSelect(index, product.id);
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex justify-between items-center w-full">
+                                      <span className="font-medium">
+                                        {product.name}
+                                      </span>
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground ml-4">
+                                        <span className="bg-muted px-2 py-1 rounded">
+                                          {product.unit}
+                                        </span>
+                                        <span
+                                          className={`px-2 py-1 rounded ${
+                                            product.stock > 0
+                                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+                                              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
+                                          }`}
+                                        >
+                                          Stock: {product.stock}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                            ) : (
+                              <div className="px-4 py-2 text-sm text-muted-foreground">No products found.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-3">

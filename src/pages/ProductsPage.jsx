@@ -25,6 +25,8 @@ const ProductsPage = () => {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (product.unit && product.unit.toLowerCase().includes(searchTerm.toLowerCase()))
+  )
+  .sort((a, b) => a.name.localeCompare(b.name)
   );
 
   const handleFormSubmit = async (productData) => {
