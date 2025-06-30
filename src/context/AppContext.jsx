@@ -199,20 +199,188 @@ export const AppProvider = ({ children }) => {
     if (!order || !order.items || !Array.isArray(order.items)) return false;
     
     return order.items.every(item => {
-      const currentStock = getProductStock(item.productId);
-      const requestedQuantity = parseInt(item.quantity, 10) || 0;
-      return currentStock >= requestedQuantity;
+      const product = products?.find(p => p.id === item.productId);
+      const availableStock = product ? (product.stock || 0) : 0;
+      return availableStock >= (item.quantity || 0);
     });
   };
 
-  // Get low stock products (products with stock below a threshold)
+  // Helper function to get products with low stock (below a threshold)
   const getLowStockProducts = (threshold = 10) => {
-    return products.filter(product => (product.stock || 0) <= threshold);
+    if (!products || !Array.isArray(products)) return [];
+    
+    return products.filter(product => {
+      const stock = product.stock || 0;
+      return stock > 0 && stock <= threshold;
+    });
   };
 
-  // Get out of stock products
+  // Helper function to get products that are out of stock
   const getOutOfStockProducts = () => {
-    return products.filter(product => (product.stock || 0) === 0);
+    if (!products || !Array.isArray(products)) return [];
+    
+    return products.filter(product => {
+      const stock = product.stock || 0;
+      return stock <= 0;
+    });
+  };
+
+  // Reverse dispatch function
+  const reverseDispatch = async (order) => {
+    if (!session) {
+      toast({ 
+        title: 'Error', 
+        description: 'You must be logged in to reverse dispatch.', 
+        variant: 'destructive' 
+      });
+      return false;
+    }
+
+    try {
+      // 1. Validate that the order can be reversed
+      if (!order || (order.status !== "Full Dispatch" && order.status !== "Partial Dispatch")) {
+        throw new Error("Order cannot be reversed - invalid status");
+      }
+
+      // 2. Prepare the inventory updates with stock history
+      const inventoryUpdates = [];
+      
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          if (item.dispatchedQuantity && item.dispatchedQuantity > 0) {
+            // Find the product to update its stock
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              const currentStock = product.stock || 0;
+              const quantityToRestore = item.dispatchedQuantity;
+              const newStock = currentStock + quantityToRestore;
+
+              // Create new stock history entry for the reversal
+              const historyEntry = {
+                date: new Date().toISOString(),
+                quantity: newStock,
+                type: 'dispatch reversal',
+                previous_stock: currentStock,
+                change: quantityToRestore,
+                order_id: order.id,
+                // reason: `Dispatch reversed for order #${order.id}`
+              };
+
+              // Update stock history
+              const updatedStockHistory = [...(product.stock_history || []), historyEntry];
+
+              inventoryUpdates.push({
+                productId: item.productId,
+                quantityToRestore: quantityToRestore,
+                currentStock: currentStock,
+                newStock: newStock,
+                updatedStockHistory: updatedStockHistory
+              });
+            }
+          }
+        }
+      }
+
+      // 3. Update the order in the database
+      const { data: updatedOrder, error: orderError } = await supabase
+        .from('orders')
+        .update({
+          status: 'Confirmed',
+          dispatched_items: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
+        .select()
+        .single();
+
+      if (orderError) {
+        throw new Error(`Failed to update order: ${orderError.message}`);
+      }
+
+      // 4. Update inventory (restore stock) with stock history
+      for (const update of inventoryUpdates) {
+        const { error: stockError } = await supabase
+          .from('products')
+          .update({ 
+            stock: update.newStock,
+            stock_history: update.updatedStockHistory,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', update.productId);
+
+        if (stockError) {
+          throw new Error(`Failed to update inventory for product ${update.productId}: ${stockError.message}`);
+        }
+      }
+
+      // 5. Reset dispatched quantities in order items
+      const resetItems = order.items.map(item => ({
+        ...item,
+        dispatchedQuantity: 0
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('orders')
+        .update({
+          items: resetItems
+        })
+        .eq('id', order.id);
+
+      if (itemsError) {
+        throw new Error(`Failed to reset order items: ${itemsError.message}`);
+      }
+
+      // 6. Update local state
+      setOrders(prevOrders => 
+        prevOrders.map(o => 
+          o.id === order.id 
+            ? {
+                ...o,
+                status: 'Confirmed',
+                dispatched_items: null,
+                items: resetItems,
+                updated_at: new Date().toISOString()
+              }
+            : o
+        )
+      );
+
+      // 7. Update products state to reflect new stock levels and history
+      setProducts(prevProducts =>
+        prevProducts.map(product => {
+          const update = inventoryUpdates.find(u => u.productId === product.id);
+          if (update) {
+            return {
+              ...product,
+              stock: update.newStock,
+              stock_history: update.updatedStockHistory,
+              updated_at: new Date().toISOString()
+            };
+          }
+          return product;
+        })
+      );
+
+      // 8. Show success message
+      toast({
+        title: "Dispatch Reversed Successfully",
+        description: `Order #${order.id} has been reversed. Inventory and stock history have been updated.`,
+        variant: "default",
+      });
+
+      return true;
+
+    } catch (error) {
+      console.error('Error reversing dispatch:', error);
+      
+      toast({
+        title: "Error Reversing Dispatch",
+        description: error.message || "Failed to reverse dispatch. Please try again.",
+        variant: "destructive",
+      });
+
+      return false;
+    }
   };
 
   const value = {
@@ -256,6 +424,7 @@ export const AppProvider = ({ children }) => {
     deleteOrder, // <-- Expose deleteOrder in context value
     confirmOrderWithStockUpdate,
     orderHasSufficientStock,
+    reverseDispatch, // <-- Expose reverseDispatch in context value
     
     // Loading states
     isLoadingData,

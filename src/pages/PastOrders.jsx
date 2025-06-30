@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 import { useToast } from "@/components/ui/use-toast";
 
 const PastOrders = () => {
-  const { orders, products } = useAppContext();
+  const { orders, products, reverseDispatch } = useAppContext();
   const { toast } = useToast();
   const [expandedOrderIds, setExpandedOrderIds] = useState(new Set());
   const [expandedMonths, setExpandedMonths] = useState({}); // Track expanded/collapsed months
@@ -406,6 +406,7 @@ const PastOrders = () => {
                               getProductStock={getProductStock}
                               formatDate={formatDate}
                               generateDispatchPDF={generateDispatchPDF}
+                              onReverseDispatch={reverseDispatch}
                             />
                           );
                         })}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   DownloadCloud,
@@ -7,9 +7,21 @@ import {
   MapPin,
   Truck,
   Phone,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const OrderCard = ({
   order,
@@ -22,8 +34,30 @@ const OrderCard = ({
   getProductStock,
   formatDate,
   generateDispatchPDF,
+  onReverseDispatch, // New prop for reverse dispatch function
 }) => {
+  const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [isReversingDispatch, setIsReversingDispatch] = useState(false);
+  
   const transportNames = getTransportNames(order.delivered_by);
+  
+  // Handler for reverse dispatch
+  const handleReverseDispatch = async () => {
+    if (!onReverseDispatch) return;
+    
+    setIsReversingDispatch(true);
+    try {
+      await onReverseDispatch(order);
+      setShowReverseDialog(false);
+    } catch (error) {
+      console.error('Error reversing dispatch:', error);
+    } finally {
+      setIsReversingDispatch(false);
+    }
+  };
+
+  // Check if order can be reversed (only dispatched orders)
+  const canReverseDispatch = order.status === "Full Dispatch" || order.status === "Partial Dispatch";
   // Handler for invoice download
   const handleDownloadInvoice = async (e) => {
     e.stopPropagation();
@@ -121,6 +155,20 @@ const OrderCard = ({
                 >
                   <DownloadCloud className="h-3.5 w-3.5" />
                 </Button>
+                {canReverseDispatch && (
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowReverseDialog(true);
+                    }} 
+                    className="h-6 w-6 p-0 rounded-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                    title="Reverse Dispatch"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <div className="h-6 w-6 flex items-center justify-center">
                   <ChevronDown
                     className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -266,6 +314,46 @@ const OrderCard = ({
           )}
         </AnimatePresence>
       </Card>
+      
+      {/* Reverse Dispatch Confirmation Dialog */}
+      <AlertDialog open={showReverseDialog} onOpenChange={setShowReverseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Reverse Dispatch
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to reverse the dispatch for order #{order.id}?
+              </p>
+              <p className="text-sm">
+                This action will:
+              </p>
+              <ul className="text-sm list-disc list-inside space-y-1 ml-2">
+                <li>Change the order status back to "Confirmed"</li>
+                <li>Restore dispatched quantities back to inventory</li>
+                <li>Clear all dispatch information</li>
+              </ul>
+              <p className="text-orange-600 font-medium text-sm">
+                ⚠️ This action cannot be undone. Use this feature only when necessary.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isReversingDispatch}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReverseDispatch}
+              disabled={isReversingDispatch}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {isReversingDispatch ? "Reversing..." : "Reverse Dispatch"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 };

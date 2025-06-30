@@ -53,6 +53,7 @@ const AnalyticsBoardPage = () => {
     updateOrderDetails,
     updateProductStock,
     deleteOrder, // <-- Add deleteOrder from context
+    reverseDispatch, // <-- Add reverseDispatch from context
   } = useAppContext();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("unconfirmed_orders");
@@ -1265,6 +1266,7 @@ const AnalyticsBoardPage = () => {
                             getTransportNames={getTransportNames}
                             getProductStock={getProductStock}
                             formatDate={formatDate}
+                            onReverseDispatch={reverseDispatch}
                             generateDispatchPDF={(orderData, dispatchData) =>
                               generateDispatchPDF(
                                 orderData,
